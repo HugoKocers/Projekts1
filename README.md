@@ -1,3 +1,3 @@
-# Projekts tekstveida videospēle
+# Proktejs tesktveida viedospēle
 
-# trello links https://trello.com/b/j7HigwMx/kanban-template
+# trlelo likns https://trello.com/b/j7HigwMx/kanban-template
