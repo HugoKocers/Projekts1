@@ -4,6 +4,7 @@ vendor/
 **/vendor/
 .env
 .env.*
+!.env.example
 backend/laravel-app/storage/*.key
 backend/laravel-app/storage/logs/
 backend/laravel-app/bootstrap/cache/
