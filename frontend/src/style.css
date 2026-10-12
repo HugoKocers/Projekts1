@@ -87,6 +87,10 @@ button {
   padding: 32px 28px 40px;
 }
 
+.screen-body-flush {
+  padding: 0;
+}
+
 .menu-view,
 .panel-view,
 .game-view {
@@ -369,6 +373,8 @@ h2 {
 }
 
 .story-card {
+  position: relative;
+  z-index: 1;
   width: 100%;
   min-height: 540px;
   display: flex;
@@ -381,16 +387,27 @@ h2 {
   box-shadow: none;
 }
 
+.scene-indicator {
+  margin: 0;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+}
+
 .story-text {
   margin: 0;
   padding: 4px 24px 18px;
   border-bottom: 3px solid #171717;
-  color: #151515;
+  color: #fff;
   font-size: clamp(0.95rem, 1.5vw, 1.3rem);
   font-weight: 700;
   line-height: 1.45;
   text-align: center;
   text-transform: uppercase;
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.8);
 }
 
 .choice-list {
@@ -426,14 +443,62 @@ h2 {
 }
 
 .game-view {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   min-height: 590px;
   width: 100%;
+  background: #67725f;
+}
+
+.game-view::before,
+.game-view::after {
+  position: absolute;
+  inset: -24px;
+  z-index: -1;
+  content: '';
+  pointer-events: none;
+}
+
+.game-view::before {
+  filter: blur(22px);
+  transform: scale(1.08);
+}
+
+.game-view::after {
+  z-index: 0;
   background:
-    linear-gradient(rgba(30, 35, 29, 0.24), rgba(30, 35, 29, 0.3)),
-    radial-gradient(ellipse at 28% 18%, rgba(210, 220, 106, 0.7), transparent 28%),
-    radial-gradient(ellipse at 75% 76%, rgba(238, 239, 223, 0.9), transparent 35%),
-    linear-gradient(125deg, #9ca77c, #798b75 48%, #d1d1bd);
-  filter: none;
+    radial-gradient(ellipse at 11% 24%, rgba(255, 255, 255, 0.25) 0 2%, transparent 7%),
+    radial-gradient(ellipse at 24% 72%, rgba(255, 255, 255, 0.2) 0 3%, transparent 9%),
+    radial-gradient(ellipse at 51% 18%, rgba(255, 255, 255, 0.18) 0 2%, transparent 8%),
+    radial-gradient(ellipse at 76% 37%, rgba(255, 255, 255, 0.22) 0 3%, transparent 10%),
+    radial-gradient(ellipse at 89% 82%, rgba(255, 255, 255, 0.18) 0 2%, transparent 9%),
+    rgba(0, 0, 0, 0.18);
+  filter: blur(9px);
+}
+
+.zone-safe::before {
+  background:
+    radial-gradient(ellipse at 18% 26%, rgba(207, 228, 131, 0.9), transparent 24%),
+    radial-gradient(ellipse at 75% 75%, rgba(224, 238, 185, 0.86), transparent 30%),
+    radial-gradient(circle at 48% 42%, rgba(86, 167, 91, 0.85), transparent 42%),
+    linear-gradient(125deg, #315d39, #82a966 50%, #d2d29b);
+}
+
+.zone-caution::before {
+  background:
+    radial-gradient(ellipse at 22% 30%, rgba(250, 226, 126, 0.92), transparent 24%),
+    radial-gradient(ellipse at 78% 72%, rgba(239, 210, 110, 0.86), transparent 32%),
+    radial-gradient(circle at 48% 48%, rgba(182, 151, 58, 0.84), transparent 44%),
+    linear-gradient(125deg, #756b31, #c1ad59 50%, #e1d5a3);
+}
+
+.zone-danger::before {
+  background:
+    radial-gradient(ellipse at 18% 26%, rgba(224, 122, 91, 0.9), transparent 25%),
+    radial-gradient(ellipse at 78% 76%, rgba(176, 61, 49, 0.9), transparent 32%),
+    radial-gradient(circle at 48% 45%, rgba(153, 38, 44, 0.92), transparent 45%),
+    linear-gradient(125deg, #54272d, #a4473f 50%, #d08b57);
 }
 
 .game-controls {
@@ -600,6 +665,21 @@ h2 {
   background: rgba(17, 20, 34, 0.95);
 }
 
+.ending-text {
+  margin: -36px 0 28px;
+  color: #fff;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.ending-dead .end-title {
+  color: #ffaaa0;
+}
+
+.ending-good .end-title {
+  color: #d1efbd;
+}
+
 .summary-list {
   list-style: none;
   padding: 0;
@@ -608,65 +688,242 @@ h2 {
   gap: 8px;
 }
 
-.inventory-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(6, 5, 8, 0.6);
+.inventory-view {
+  min-height: 540px;
+  padding: 24px;
   display: grid;
   place-items: center;
-  padding: 18px;
+  background: #373435;
 }
 
-.inventory-panel {
-  width: min(420px, 100%);
-  border-radius: 20px;
-  background: #1a151c;
-  border: 1px solid rgba(214, 178, 121, 0.25);
-  padding: 20px 20px 12px;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.25);
+.inventory-screen {
+  width: min(100%, 980px);
 }
 
 .inventory-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 12px;
+  position: relative;
+  justify-content: center;
+  margin-bottom: 8px;
 }
 
-.inventory-panel ul {
-  list-style: none;
+.inventory-title {
+  width: min(32%, 300px);
+  min-width: 180px;
+  height: 76px;
   margin: 0;
-  padding: 0;
   display: grid;
-  gap: 10px;
+  place-items: center;
+  border: 0;
+  background: #292728;
+  color: #fff;
+  font-size: 1.25rem;
+  font-weight: 700;
 }
 
-.inventory-panel li {
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(217, 183, 122, 0.14);
-  padding: 12px 14px;
-  border-radius: 12px;
-  color: #fcead6;
+.inventory-return {
+  position: absolute;
+  right: 0;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 0;
+  background: #292728;
+  color: #fff;
+  font-weight: 700;
+}
+
+.inventory-content {
+  height: min(500px, calc(100vh - 190px));
+  min-height: 320px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: #858585;
+  overflow: hidden;
+}
+
+.inventory-slots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: start;
+  justify-items: start;
+  align-items: start;
+  gap: 24px;
+  padding: 28px;
+  border-right: 4px solid #080808;
+  overflow-y: auto;
+}
+
+.inventory-slot {
+  width: min(100%, 92px);
+  aspect-ratio: 1;
+  background: #c7c7c7;
+  border: 3px solid #090909;
+  color: #111;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.inventory-slot:disabled {
+  cursor: default;
+}
+
+.inventory-slot.selected {
+  background: #e0e0e0;
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.inventory-details {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+  padding: 20px 30px;
+  background: #858585;
+  overflow: hidden;
+}
+
+.inventory-item-preview,
+.inventory-description {
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 14px;
+  background: #bdbdbd;
+  color: #101010;
+  text-align: center;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.inventory-item-preview {
+  min-height: 190px;
+  font-size: 1.3rem;
+}
+
+.inventory-description {
+  min-height: 170px;
+  border-top: 4px solid #111;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  overflow-y: auto;
+}
+
+.login-view {
+  min-height: 540px;
+  padding: 14px;
+  background: #323031;
+}
+
+.login-card {
+  position: relative;
+  width: 100%;
+  min-height: 512px;
+  padding: 40px 9%;
+  background: #777475;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.auth-return {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 0;
+  background: #3e3b3c;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
 }
 
 .login-form {
+  width: 68%;
   display: grid;
-  gap: 16px;
-  margin: 18px 0 26px;
-}
-
-.login-form label {
-  display: grid;
-  gap: 8px;
+  gap: 26px;
+  margin: 0;
 }
 
 .login-form input {
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(231, 190, 120, 0.2);
-  border-radius: 12px;
+  width: 100%;
+  height: 48px;
+  padding: 0 14px;
+  background: #e3e3e3;
+  border: 0;
+  border-radius: 0;
+  color: #111;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.login-form input::placeholder {
+  color: #111;
+  opacity: 1;
+}
+
+.login-actions {
+  position: absolute;
+  right: 17%;
+  bottom: 4px;
+  left: 22%;
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.login-actions button {
+  width: 30%;
+  min-height: 48px;
+  background: #3e3b3c;
+  border: 0;
   color: #fff;
-  padding: 0.8rem 0.9rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.login-actions button.selected {
+  background: #242223;
+}
+
+.settings-view {
+  min-height: 540px;
+  padding: 32px;
+  background: #3b3738;
+}
+
+.settings-actions {
+  width: min(420px, 100%);
+  display: grid;
+  gap: 40px;
+}
+
+.settings-button {
+  position: relative;
+  width: 100%;
+  min-height: 56px;
+  background: #f2f2f2;
+  border: 3px solid #090909;
+  color: #111;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.settings-button:first-child:focus-visible {
+  outline: 2px solid #1689e8;
+  outline-offset: 1px;
+}
+
+.settings-button.logout {
+  background: #ed292b;
+}
+
+.language-code {
+  position: absolute;
+  right: 12px;
+  font-size: 0.8rem;
 }
 
 @media (max-width: 700px) {
@@ -724,5 +981,95 @@ h2 {
 
   .end-items {
     padding-left: 8%;
+  }
+
+  .inventory-view {
+    min-height: 540px;
+    padding: 14px;
+  }
+
+  .inventory-header {
+    justify-content: flex-start;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .inventory-title {
+    width: auto;
+    min-width: 0;
+    height: 52px;
+    flex: 1;
+  }
+
+  .inventory-return {
+    position: static;
+    min-height: 52px;
+    padding-inline: 12px;
+  }
+
+  .inventory-content {
+    height: min(460px, calc(100vh - 150px));
+    min-height: 320px;
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(130px, 0.8fr) minmax(180px, 1.2fr);
+  }
+
+  .inventory-slots {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    padding: 14px;
+    border-right: 0;
+    border-bottom: 4px solid #080808;
+  }
+
+  .inventory-slot {
+    width: min(100%, 84px);
+  }
+
+  .inventory-details {
+    grid-template-rows: minmax(110px, 1fr) minmax(120px, 1fr);
+    padding: 14px;
+  }
+
+  .inventory-item-preview {
+    min-height: 110px;
+  }
+
+  .inventory-description {
+    min-height: 120px;
+  }
+
+  .login-view {
+    min-height: 540px;
+    padding: 10px;
+  }
+
+  .login-card {
+    min-height: 520px;
+    padding: 32px 8%;
+  }
+
+  .login-form {
+    width: 100%;
+    gap: 18px;
+  }
+
+  .login-actions {
+    right: 8%;
+    left: 8%;
+    gap: 12px;
+  }
+
+  .login-actions button {
+    width: 50%;
+  }
+
+  .settings-view {
+    min-height: 540px;
+    padding: 22px;
+  }
+
+  .settings-actions {
+    gap: 24px;
   }
 }

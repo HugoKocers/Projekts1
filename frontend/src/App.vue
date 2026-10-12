@@ -2,12 +2,17 @@
 import { computed, onUnmounted, ref } from 'vue'
 
 const currentScreen = ref('menu')
-const inventoryOpen = ref(false)
 const currentSceneIndex = ref(0)
 const aftermathText = ref('')
 const inventory = ref([])
+const selectedInventoryItem = ref(null)
+const authMode = ref('signup')
+const selectedLanguage = ref('EN')
 const elapsedSeconds = ref(0)
 const gameStartedAt = ref(null)
+const pendingEnding = ref(null)
+const pendingNextScene = ref(null)
+const ending = ref(null)
 let gameTimer = null
 
 const menuButtons = [
@@ -17,11 +22,13 @@ const menuButtons = [
   { id: 'settings', label: 'EXIT', accent: 'danger' },
 ]
 
-const settingsActions = [
-  { label: 'Valodas maiņa', type: 'primary' },
-  { label: 'Atgriezties', type: 'secondary' },
-  { label: 'Iziet', type: 'danger' },
-]
+const itemDescriptions = {
+  'Ticība pasakām': 'Stūrgalvīga ticība, ka siena varētu atvērties, ja tajā ieskriesies. Varbūt ne pārāk noderīga, bet noteikti neaizmirstama.',
+  'Metāla gabals': 'Smags metāla gabals no vecajiem tuneļiem. Ar to varētu paplašināt šauru izeju.',
+  'Auduma strēmele': 'No veca pārklāja noplēsta auduma strēmele. Tā varētu noderēt brūces apsiešanai.',
+  'Mājas atslēga': 'Atslēga, kuru domāji pazaudējis. Tā ļauj tikt mājās, nelienot pa logu.',
+  'Veiksmes monēta': 'Putekļos atrasta monēta. Tā izskatās pēc laba veiksmes talismana.',
+}
 
 const savedSessions = [
   {
@@ -47,107 +54,156 @@ const adminCards = [
 
 const storyScenes = [
   {
-    text: 'The village square is empty. A lantern flickers above the old well, and a note on its stone rim reads: “The bell will ring when the archive is found.”',
+    title: '1. SCENĀRIJS — BRUKUMS',
+    risk: 'danger',
+    text: 'Kādā garlaicīgā piektdienas vakarā tu ieklīsti dziļi vecos pazemes tuneļos. Eju ir tik daudz, ka nav iespējams saprast, cik to ir un kur tu atrodies. Tu esi apmaldījies. Apkārt ir tumšs un auksts; vienīgā gaisma ir telefona lukturis. Tevi ieskauj senas viduslaiku sienas. Pēkšņi tālumā kaut kas norīb. Grīda nodreb. Putekļu mākonis strauji tuvojas, un tev priekšā ir trīs ejas.',
     choices: [
       {
-        label: 'Take the note and head for the bell tower.',
-        aftermath: 'You fold the note and follow the sound of a distant bell. The tower rises above the rooftops, its door slightly ajar.',
-        reward: { name: 'Lantern Oil', chance: 0.35 },
+        label: 'Ieskrien sienā nobloķētajā ejā.',
+        aftermath: 'Tu notici pasakām un pilnā sparā ieskrien sienā. Siena nepakustas. Tu zaudē samaņu un guli, cerot, ka kāds tevi izglābs.',
+        requiredItem: 'Ticība pasakām',
+        ending: {
+          title: 'SIENA UZVAR',
+          text: 'Siena paliek neuzveikta. Tavs pazemes piedzīvojums beidzas, vēl īsti nesācies.',
+          kind: 'dead',
+        },
       },
       {
-        label: 'Search the well for another clue.',
-        aftermath: 'At the bottom of the well, your lantern catches a metal glint. You retrieve it before heading toward the tower.',
-        reward: { name: 'Brass Key', chance: 0.65 },
+        label: 'Paslēpies zem arkas otrajā ejā.',
+        aftermath: 'Tu palien zem arkas. Brukums nodārd tev garām, bet akmens iztur. Kad putekļi nosēžas, tu joprojām esi dzīvs.',
+        next: 1,
       },
       {
-        label: 'Ask the innkeeper about the archive.',
-        aftermath: 'The innkeeper remembers a locked room beneath the tower. They warn you that the old stairway is unstable.',
-        reward: { name: 'Cloth Strip', chance: 0.3 },
+        label: 'Skrien pa garo eju prom no putekļiem.',
+        aftermath: 'Tu meties skriet tumsā. Eja dreb, bet tu apsteidz brukumu un ieskrien drošākā telpā.',
+        reward: { name: 'Metāla gabals', chance: 0.65 },
+        next: 1,
       },
     ],
   },
   {
-    text: 'Inside the tower, three stairways lead upward. Dust covers the steps, except for a fresh trail that disappears behind a heavy wooden door.',
+    title: '2. NOTIKUMS — VĒJA VIRZIENS',
+    risk: 'safe',
+    text: 'Tu veiksmīgi nokļuvi drošākā vietā. Te nekas nebrūk. Pagaidi… te pūš vējš. Tas plūst cauri tuneļiem no ārpuses. Varbūt vējš parādīs ceļu ārā.',
     choices: [
       {
-        label: 'Follow the fresh footprints.',
-        aftermath: 'The footprints lead to a narrow landing. You find a torn page from the archive and hear movement above you.',
-        reward: { name: 'Archive Page', chance: 0.5 },
+        label: 'Seko vējam svaiga gaisa virzienā.',
+        aftermath: 'Tu seko vējam pa klusu, šauru eju. Gaiss kļūst siltāks un smaržo pēc lietus.',
+        reward: { name: 'Veiksmes monēta', chance: 0.35 },
+        next: 2,
       },
       {
-        label: 'Try the brass key on the wooden door.',
-        aftermath: 'The key turns with a click. Beyond the door, a spiral staircase descends beneath the tower.',
-        requiredItem: 'Brass Key',
+        label: 'Ej atpakaļ brukuma virzienā.',
+        aftermath: 'Tunelis atkal iekrakšķas. Šoreiz griesti iebrūk, pirms tu paspēj apgriezties.',
+        ending: {
+          title: 'APRAKTS PAZEMĒ',
+          text: 'Tu devies atpakaļ brukuma virzienā. Vecie tuneļi aizvēra ceļu uz visiem laikiem.',
+          kind: 'dead',
+        },
       },
       {
-        label: 'Climb the stairs toward the bell.',
-        aftermath: 'At the top, you discover the bell rope has been cut. A small service hatch opens onto a hidden lower level.',
-        reward: { name: 'Bell Clapper', chance: 0.4 },
+        label: 'Izlien caur zemu apkopes eju.',
+        aftermath: 'Tu izlien cauri šaurai spraugai un nokļūsti aiz bojātajiem tuneļiem. Priekšā vāji spīd zaļgana gaisma.',
+        reward: { name: 'Auduma strēmele', chance: 0.5 },
+        next: 2,
       },
     ],
   },
   {
-    text: 'The hidden passage ends at a flooded archive chamber. Shelves lean over the water, and a sealed book rests on a stone table.',
+    title: '3. NOTIKUMS — IZEJA',
+    risk: 'caution',
+    text: 'Tur priekšā ir gaisma! Paga… ārā taču ir nakts. Vējš tevi atveda līdz nelielai izejai, taču tā ir pārāk šaura, lai izlīstu. Blakus mētājas metāla gabals, un tunelis turpinās tālāk.',
     choices: [
       {
-        label: 'Wade through the water to reach the book.',
-        aftermath: 'The cold water reaches your waist, but you retrieve the sealed book. Its cover bears the same mark as the note.',
-        reward: { name: 'Sealed Book', chance: 0.55 },
+        label: 'Ar metāla gabalu atlauz izeju platāku.',
+        aftermath: 'Tu iebāz metāla gabalu spraugā un paplašini izeju. Akmeņi virs galvas sakustas, bet tev izdodas izkļūt ārā.',
+        requiredItem: 'Metāla gabals',
+        next: 3,
       },
       {
-        label: 'Use a loose shelf to cross above the water.',
-        aftermath: 'The shelf holds your weight. You reach the table without disturbing the water and notice a hidden latch beneath it.',
-        reward: { name: 'Archive Seal', chance: 0.45 },
+        label: 'Ej tālāk un meklē citu izeju.',
+        aftermath: 'Tu turpini ceļu, nevis riskē ar trauslo atveri. Platāka eja tevi izved ārā zem kokiem.',
+        reward: { name: 'Mājas atslēga', chance: 0.25 },
+        next: 3,
       },
       {
-        label: 'Pull the drainage lever by the entrance.',
-        aftermath: 'The water slowly drains away, revealing a second passage and a scattered set of archive pages.',
-        reward: { name: 'Archive Page', chance: 0.55 },
+        label: 'Seko šaurajai ventilācijas ejai satiksmes skaņas virzienā.',
+        aftermath: 'Eja ir šaura, bet tā ved līdz apkopes lūkai pie ceļa. Tu to atver un iznāc naktī.',
+        next: 3,
       },
     ],
   },
   {
-    text: 'The archive pages describe why the bell was silenced: its sound would reveal the entrance to a chamber beneath the village.',
+    title: '4. NOTIKUMS — PAZAUDĒTĀ ATSLĒGA',
+    risk: 'caution',
+    text: 'Beidzot esi ārā un dodies mājās. Pie durvīm pārmeklē kabatas. Mājas atslēgu nav! Gaismas ir izslēgtas, bet tu atceries, ka viens logs palika neaizslēgts.',
     choices: [
       {
-        label: 'Repair the bell rope with a strip of cloth.',
-        aftermath: 'The rope holds. One clear note rings through the village, and a stone doorway opens beneath the tower.',
-        requiredItem: 'Cloth Strip',
+        label: 'Atgriezies tuneļos un meklē atslēgas.',
+        aftermath: 'Tu dodies atpakaļ pazemē meklēt atslēgas. Jau novājinātie tuneļi sāk brukt tev apkārt.',
+        ending: {
+          title: 'ATKAL PAZUDIS',
+          text: 'Tuneļi iebrūk, pirms atrodi atslēgas. Atgriezties pazemē bija nepareizais ceļš uz mājām.',
+          kind: 'dead',
+        },
       },
       {
-        label: 'Use the archive pages to find the bell mechanism.',
-        aftermath: 'A diagram shows how to reset the mechanism. The bell rings once, opening a concealed stairway under the tower.',
-        requiredItem: 'Archive Page',
+        label: 'Iekāp pa atvērto logu.',
+        aftermath: 'Tu uzmanīgi ierāpies pa neaizslēgto logu un droši nokļūsti mājās.',
+        next: 4,
       },
       {
-        label: 'Leave the bell untouched and open the chamber manually.',
-        aftermath: 'You find a hidden release behind the bell frame. The doorway opens, though the village remains quiet.',
-        reward: { name: 'Old Coin', chance: 0.3 },
+        label: 'Izmanto ārā paslēpto rezerves atslēgu.',
+        aftermath: 'Tu atceries rezerves atslēgu zem puķupoda. Tā joprojām ir tur, un durvis atveras bez kāpšanas.',
+        requiredItem: 'Mājas atslēga',
+        next: 4,
       },
     ],
   },
   {
-    text: 'Beneath the village, you find the missing archive intact. Its final entry explains that the bell was meant to protect the records, not hide them forever.',
+    title: '5. NOTIKUMS — BEIDZOT MĀJĀS',
+    risk: 'safe',
+    text: 'Tu esi mājās. Adrenalīnam rimstoties, pamani, ka sāp kāja. Uz biksēm ir asinis, un nobrāzums izskatās sliktāk, nekā sākumā šķita.',
     choices: [
       {
-        label: 'Return the archive to the village library.',
-        aftermath: 'The villagers gather as the archive is returned. The records are safe again, and the bell rings to mark the end of your journey.',
-        reward: { name: 'Library Token', chance: 0.5 },
+        label: 'Nomazgā brūci un apsien to ar auduma strēmeli.',
+        aftermath: 'Tu iztīri brūci un rūpīgi to apsien. Tā sūrst, bet asiņošana apstājas. Tu izdzīvoji tuneļos un parūpējies par sevi.',
+        requiredItem: 'Auduma strēmele',
+        ending: {
+          title: 'TĀ BIJA LABA PIEKTDIENA',
+          text: 'Tu tiki mājās, aprūpēji brūci un paliki dzīvs, lai izstāstītu šo piedzīvojumu. Tā bija laba piektdiena. Bija jautri.',
+          kind: 'good',
+        },
       },
       {
-        label: 'Read the final entry before returning.',
-        aftermath: 'The final entry reveals the names of those who protected the archive. You carry the book back and share their story with the village.',
-        requiredItem: 'Sealed Book',
+        label: 'Ignorē brūci un uzreiz ej gulēt.',
+        aftermath: 'Tu ignorē asiņojošo brūci un apgulies. Sāpes pastiprinās, un istaba sāk griezties.',
+        ending: {
+          title: 'VAJADZĒJA BRŪCI IZTĪRĪT',
+          text: 'Miegā brūce iekaisa. Piedzīvojums beidzas no sekām, no kurām būtu bijis viegli izvairīties.',
+          kind: 'dead',
+        },
       },
       {
-        label: 'Leave the archive hidden for now.',
-        aftermath: 'You secure the chamber and mark its entrance. The archive remains protected until the village is ready to care for it.',
+        label: 'Piezvani draugam, lai palīdz iztīrīt un apsiet brūci.',
+        aftermath: 'Draugs atbrauc ar aptieciņu un palīdz iztīrīt brūci. Tu esi drošībā, kāja sāp, un jau plāno mazāk bīstamu piektdienu.',
+        ending: {
+          title: 'TĀ BIJA LABA PIEKTDIENA',
+          text: 'Tu tiki mājās, saņēmi palīdzību un paliki dzīvs, lai izstāstītu šo piedzīvojumu. Tā bija laba piektdiena. Bija jautri.',
+          kind: 'good',
+        },
       },
     ],
   },
 ]
 
 const currentScene = computed(() => storyScenes[currentSceneIndex.value])
+const inventorySlots = computed(() =>
+  Array.from({ length: Math.max(6, inventory.value.length) }, (_, index) => inventory.value[index] ?? null),
+)
+const selectedItemDescription = computed(() =>
+  selectedInventoryItem.value ? itemDescriptions[selectedInventoryItem.value] ?? 'A found item from your journey.' : 'Select an item to view its description.',
+)
 const formattedPlaytime = computed(() => {
   const hours = Math.min(Math.floor(elapsedSeconds.value / 3600), 99)
   const minutes = Math.floor((elapsedSeconds.value % 3600) / 60)
@@ -181,37 +237,32 @@ function openScreen(screen) {
   if (screen === 'game') {
     currentSceneIndex.value = 0
     aftermathText.value = ''
-    inventory.value = []
+    inventory.value = ['Ticība pasakām']
+    pendingEnding.value = null
+    pendingNextScene.value = null
+    ending.value = null
     startGameTimer()
   }
-  inventoryOpen.value = false
 }
 
 function goBack() {
   stopGameTimer()
   gameStartedAt.value = null
-  inventoryOpen.value = false
   currentScreen.value = 'menu'
   currentSceneIndex.value = 0
   inventory.value = []
+  pendingEnding.value = null
+  pendingNextScene.value = null
+  ending.value = null
 }
 
 function toggleInventory() {
-  inventoryOpen.value = !inventoryOpen.value
+  currentScreen.value = currentScreen.value === 'inventory' ? 'game' : 'inventory'
+  selectedInventoryItem.value = inventory.value[0] ?? null
 }
 
-function handleSettingAction(action) {
-  if (action.label === 'Atgriezties') {
-    goBack()
-    return
-  }
-
-  if (action.label === 'Iziet') {
-    openScreen('menu')
-    return
-  }
-
-  openScreen('menu')
+function toggleLanguage() {
+  selectedLanguage.value = selectedLanguage.value === 'EN' ? 'LV' : 'EN'
 }
 
 function chooseStoryOption(option) {
@@ -220,21 +271,24 @@ function chooseStoryOption(option) {
   }
 
   aftermathText.value = option.aftermath
+  pendingEnding.value = option.ending ?? null
+  pendingNextScene.value = option.next ?? null
   if (option.reward) {
     if (Math.random() < option.reward.chance) {
       if (!inventory.value.includes(option.reward.name)) {
         inventory.value.push(option.reward.name)
       }
-      aftermathText.value += ` You found an item: ${option.reward.name}.`
+      aftermathText.value += ` Atradi priekšmetu: ${option.reward.name}.`
     } else {
-      aftermathText.value += ' You did not find an item this time.'
+      aftermathText.value += ' Šoreiz priekšmetu neizdevās atrast.'
     }
   }
   currentScreen.value = 'aftermath'
 }
 
 function continueAftermath() {
-  if (currentSceneIndex.value === storyScenes.length - 1) {
+  if (pendingEnding.value) {
+    ending.value = pendingEnding.value
     if (gameStartedAt.value !== null) {
       elapsedSeconds.value = Math.min(
         Math.floor((Date.now() - gameStartedAt.value) / 1000),
@@ -247,7 +301,8 @@ function continueAftermath() {
     return
   }
 
-  currentSceneIndex.value += 1
+  currentSceneIndex.value = pendingNextScene.value ?? currentSceneIndex.value + 1
+  pendingNextScene.value = null
   currentScreen.value = 'game'
 }
 
@@ -257,12 +312,12 @@ onUnmounted(stopGameTimer)
 <template>
   <div class="app-shell">
     <div class="screen-frame">
-      <header v-if="currentScreen !== 'menu' && currentScreen !== 'continue' && currentScreen !== 'aftermath' && currentScreen !== 'end'" class="topbar topbar-compact">
+      <header v-if="!['menu', 'continue', 'aftermath', 'end', 'login', 'settings', 'inventory'].includes(currentScreen)" class="topbar topbar-compact">
         <button class="ghost-button" @click="goBack">Atgriezties</button>
         <span class="brand subtle">{{ currentScreen === 'game' ? 'Spēle' : currentScreen === 'end' ? 'Spēles beigas' : currentScreen === 'settings' ? 'Iestatījumi' : currentScreen === 'login' ? 'Pieslēgties' : 'Administrators' }}</span>
       </header>
 
-      <main class="screen-body">
+      <main :class="['screen-body', { 'screen-body-flush': ['login', 'settings', 'inventory'].includes(currentScreen) }]">
         <section v-if="currentScreen === 'menu'" class="menu-view">
           <div class="menu-panel">
             <div class="menu-mode">M</div>
@@ -299,39 +354,52 @@ onUnmounted(stopGameTimer)
         </section>
 
         <section v-else-if="currentScreen === 'login'" class="panel-view login-view">
-          <div class="panel-card login-card">
-            <p class="eyebrow">Pieslēgties</p>
-            <h2>Autentifikācija</h2>
-            <div class="login-form">
-              <label>
-                <span>E-pasts</span>
-                <input type="email" value="spēlētājs@ciems.lv" />
-              </label>
-              <label>
-                <span>Parole</span>
-                <input type="password" value="••••••••" />
-              </label>
+          <div class="login-card">
+            <button class="auth-return" type="button" @click="goBack">RETURN TO MENU</button>
+            <form class="login-form" @submit.prevent>
+              <input autocomplete="username" name="username" placeholder="USERNAME" required />
+              <input
+                autocomplete="new-password"
+                name="password"
+                placeholder="PASSWORD"
+                required
+                type="password"
+              />
+              <input
+                v-if="authMode === 'signup'"
+                autocomplete="new-password"
+                name="confirm-password"
+                placeholder="CONFIRM PASSWORD"
+                required
+                type="password"
+              />
+            </form>
+            <div class="login-actions">
+              <button
+                :class="{ selected: authMode === 'signup' }"
+                type="button"
+                @click="authMode = 'signup'"
+              >
+                SIGN UP
+              </button>
+              <button
+                :class="{ selected: authMode === 'login' }"
+                type="button"
+                @click="authMode = 'login'"
+              >
+                LOG IN
+              </button>
             </div>
-            <button class="action-button primary" @click="openScreen('game')">Ienākt spēlē</button>
           </div>
         </section>
 
         <section v-else-if="currentScreen === 'settings'" class="panel-view settings-view">
-          <div class="panel-card">
-            <p class="eyebrow">Iestatījumi</p>
-            <h2>Skicē parādīta lapa "iestatījumi"</h2>
-            <p>Šeit plānots pogām būt: valodas nomainīšana, atgriezties un iziet.</p>
-
-            <div class="stacked-actions">
-              <button
-                v-for="action in settingsActions"
-                :key="action.label"
-                :class="['action-button', action.type]"
-                @click="handleSettingAction(action)"
-              >
-                {{ action.label }}
-              </button>
-            </div>
+          <div class="settings-actions">
+            <button class="settings-button" @click="toggleLanguage">
+              LANGUAGE <span class="language-code">{{ selectedLanguage }}</span>
+            </button>
+            <button class="settings-button" @click="goBack">RETURN</button>
+            <button class="settings-button logout" @click="goBack">LOG OUT</button>
           </div>
         </section>
 
@@ -359,8 +427,9 @@ onUnmounted(stopGameTimer)
           </div>
         </section>
 
-        <section v-else-if="currentScreen === 'game'" class="game-view">
+        <section v-else-if="currentScreen === 'game'" :class="['game-view', `zone-${currentScene.risk}`]">
           <div class="story-card">
+            <p class="scene-indicator">{{ currentScene.title }}</p>
             <p class="story-text">{{ currentScene.text }}</p>
 
             <div class="choice-list">
@@ -369,12 +438,12 @@ onUnmounted(stopGameTimer)
                 :key="`${choice.label}-${index}`"
                 :class="['choice-button', { locked: choice.requiredItem && !inventory.includes(choice.requiredItem) }]"
                 :disabled="choice.requiredItem && !inventory.includes(choice.requiredItem)"
-                :title="choice.requiredItem && !inventory.includes(choice.requiredItem) ? `Requires ${choice.requiredItem}` : ''"
+                :title="choice.requiredItem && !inventory.includes(choice.requiredItem) ? `Nepieciešams: ${choice.requiredItem}` : ''"
                 @click="chooseStoryOption(choice)"
               >
                 {{ choice.label }}
                 <span v-if="choice.requiredItem && !inventory.includes(choice.requiredItem)" class="choice-requirement">
-                  Requires {{ choice.requiredItem }}
+                  Nepieciešams: {{ choice.requiredItem }}
                 </span>
               </button>
             </div>
@@ -382,6 +451,33 @@ onUnmounted(stopGameTimer)
             <div class="game-controls">
               <button class="game-control-button" @click="toggleInventory">INVENTORY</button>
               <button class="game-control-button" @click="goBack">QUIT</button>
+            </div>
+          </div>
+        </section>
+
+        <section v-else-if="currentScreen === 'inventory'" class="inventory-view">
+          <div class="inventory-screen">
+            <div class="inventory-header">
+              <h2 class="inventory-title">INVENTORY</h2>
+              <button class="inventory-return" @click="toggleInventory">BACK TO GAME</button>
+            </div>
+            <div class="inventory-content">
+              <div class="inventory-slots" aria-label="Collected items">
+                <button
+                  v-for="(item, index) in inventorySlots"
+                  :key="index"
+                  :class="['inventory-slot', { selected: selectedInventoryItem === item && item }]"
+                  :disabled="!item"
+                  :aria-label="item ?? 'Empty inventory slot'"
+                  @click="selectedInventoryItem = item"
+                >
+                  {{ item ? 'ITEM' : '' }}
+                </button>
+              </div>
+              <div class="inventory-details">
+                <div class="inventory-item-preview">{{ selectedInventoryItem ?? 'ITEM' }}</div>
+                <p class="inventory-description">{{ selectedItemDescription }}</p>
+              </div>
             </div>
           </div>
         </section>
@@ -394,8 +490,9 @@ onUnmounted(stopGameTimer)
         </section>
 
         <section v-else-if="currentScreen === 'end'" class="panel-view end-view">
-          <div class="end-screen">
-            <h2 class="end-title">GAME END</h2>
+          <div :class="['end-screen', ending?.kind === 'dead' ? 'ending-dead' : 'ending-good']">
+            <h2 class="end-title">{{ ending?.title ?? 'GAME END' }}</h2>
+            <p v-if="ending" class="ending-text">{{ ending.text }}</p>
             <div class="end-items" aria-label="Items collected during the story">
               <p v-if="inventory.length === 0" class="empty-inventory">NO ITEMS COLLECTED</p>
               <p v-for="item in inventory" :key="item" class="end-item">{{ item }}</p>
@@ -413,16 +510,5 @@ onUnmounted(stopGameTimer)
       </main>
     </div>
 
-    <div v-if="inventoryOpen" class="inventory-overlay" @click.self="toggleInventory">
-      <div class="inventory-panel">
-        <div class="inventory-header">
-          <h3>Inventārs</h3>
-          <button class="ghost-button" @click="toggleInventory">Aizvērt</button>
-        </div>
-        <ul>
-          <li v-for="item in inventory" :key="item">{{ item }}</li>
-        </ul>
-      </div>
-    </div>
   </div>
 </template>
