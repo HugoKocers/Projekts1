@@ -1,26 +1,47 @@
 <script setup>
-import { computed, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 const currentScreen = ref('menu')
 const currentSceneIndex = ref(0)
+const scenarios = ref([])
+const items = ref([])
+const currentUser = ref(null)
+const currentScenarioId = ref(null)
+const gameSessionId = ref(null)
+const savedSessionsFromApi = ref([])
+const apiError = ref('')
+const saveError = ref('')
+const busy = ref(false)
+const csrfToken = ref('')
+const authForm = ref({ username: '', email: '', password: '', password_confirmation: '' })
+const adminScenarios = ref([])
+const adminItems = ref([])
+const editingScenarioId = ref(null)
+const editingItemId = ref(null)
+const scenarioDraft = ref(null)
+const itemDraft = ref({ name: '', description: '' })
 const aftermathText = ref('')
+const aftermathReward = ref(null)
 const inventory = ref([])
 const selectedInventoryItem = ref(null)
 const authMode = ref('signup')
 const selectedLanguage = ref('EN')
 const elapsedSeconds = ref(0)
 const gameStartedAt = ref(null)
+const inventoryReturnScreen = ref('game')
 const pendingEnding = ref(null)
 const pendingNextScene = ref(null)
 const ending = ref(null)
 let gameTimer = null
+let lastAutosavedSecond = 0
 
-const menuButtons = [
-  { id: 'login', label: 'SIGN UP/LOG IN' },
-  { id: 'game', label: 'START' },
-  { id: 'continue', label: 'CONTINUE' },
-  { id: 'settings', label: 'EXIT', accent: 'danger' },
-]
+const menuButtons = computed(() => [
+  { id: 'login', label: currentUser.value ? uiText('account') : uiText('auth') },
+  { id: 'game', label: uiText('start') },
+  { id: 'continue', label: uiText('continue') },
+  { id: 'settings', label: uiText('exit'), accent: 'danger' },
+  ...(currentUser.value?.is_admin ? [{ id: 'admin', label: 'ADMIN PANEL' }] : []),
+])
 
 const itemDescriptions = {
   'Ticība pasakām': 'Stūrgalvīga ticība, ka siena varētu atvērties, ja tajā ieskriesies. Varbūt ne pārāk noderīga, bet noteikti neaizmirstama.',
@@ -30,27 +51,251 @@ const itemDescriptions = {
   'Veiksmes monēta': 'Putekļos atrasta monēta. Tā izskatās pēc laba veiksmes talismana.',
 }
 
-const savedSessions = [
-  {
-    description: 'IT HAS SURVIVED NOT ONLY MANY DECADES, BUT ALSO THE LEAP INTO ELECTRONIC TYPESSETTING, REMAINING ESSENTIALLY UNCHANGED.',
-    playtime: 'XX:XX',
+const uiTranslations = {
+  EN: {
+    auth: 'SIGN UP / LOG IN',
+    start: 'START',
+    continue: 'CONTINUE',
+    exit: 'EXIT',
+    admin: 'ADMIN PANEL',
+    account: 'ACCOUNT',
+    returnMenu: 'RETURN TO MENU',
+    back: 'BACK',
+    game: 'Game',
+    gameEnd: 'Game over',
+    adminScreen: 'Administrator',
+    username: 'USERNAME OR EMAIL',
+    email: 'EMAIL',
+    password: 'PASSWORD',
+    confirmPassword: 'CONFIRM PASSWORD',
+    wait: 'PLEASE WAIT…',
+    createAccount: 'CREATE ACCOUNT',
+    signUp: 'SIGN UP',
+    logIn: 'LOG IN',
+    language: 'LANGUAGE',
+    return: 'RETURN',
+    logOut: 'LOG OUT',
+    noSaves: 'NO SAVED GAMES AVAILABLE.',
+    inventory: 'INVENTORY',
+    backToGame: 'BACK TO GAME',
+    emptyInventory: 'NO ITEMS COLLECTED',
+    item: 'ITEM',
+    required: 'Required:',
+    retrySave: 'RETRY SAVE',
+    next: 'NEXT',
+    playtime: 'PLAYTIME',
+    totalPlayed: 'TOTAL PLAYED:',
+    end: 'END',
+    loggedIn: 'Logged in:',
+    adminHeading: 'Game content',
+    scenarios: 'Scenarios',
+    items: 'Items',
+    new: 'NEW',
+    edit: 'EDIT',
+    delete: 'DELETE',
+    scenarioName: 'Title',
+    description: 'Description',
+    riskZone: 'Risk zone',
+    safe: 'Safe',
+    caution: 'Caution',
+    danger: 'Danger',
+    order: 'Order',
+    choice: 'Choice',
+    choiceText: 'Choice text',
+    consequence: 'Consequence',
+    nextScenario: 'Next scenario',
+    noValue: 'None',
+    endingType: 'Ending type',
+    goodEnding: 'Good ending',
+    badEnding: 'Bad ending',
+    requiredItem: 'Required item',
+    rewardItem: 'Reward item',
+    rewardChance: 'Reward chance (0–1)',
+    endingTitle: 'Ending title',
+    endingText: 'Ending text',
+    save: 'SAVE',
+    saveScenario: 'SAVE SCENARIO',
+    saveItem: 'SAVE ITEM',
+    cancel: 'CANCEL',
+    newScenario: 'New scenario',
+    editScenario: 'Edit scenario',
+    newItem: 'New item',
+    editItem: 'Edit item',
+    itemName: 'Name',
+    adminOnly: 'This page is only available to administrators.',
+    signInToStart: 'Sign in or create an account to start and save a game.',
+    signInToContinue: 'Sign in to view your saved games.',
+    noScenarios: 'No scenarios are available. Run the database seeder.',
+    saveFailed: 'Game save failed.',
   },
-  {
-    description: 'IT HAS SURVIVED NOT ONLY MANY DECADES, BUT ALSO THE LEAP INTO ELECTRONIC TYPESSETTING, REMAINING ESSENTIALLY UNCHANGED.',
-    playtime: 'XX:XX',
+  LV: {
+    auth: 'REĢISTRĒTIES / PIESLĒGTIES',
+    start: 'SĀKT',
+    continue: 'TURPINĀT',
+    exit: 'IZIET',
+    admin: 'ADMIN PANELIS',
+    account: 'KONTS',
+    returnMenu: 'ATGRIEZTIES UZ IZVĒLNI',
+    back: 'ATGRIEZTIES',
+    game: 'Spēle',
+    gameEnd: 'Spēles beigas',
+    adminScreen: 'Administrators',
+    username: 'LIETOTĀJVĀRDS VAI E-PASTS',
+    email: 'E-PASTS',
+    password: 'PAROLE',
+    confirmPassword: 'APSTIPRINI PAROLI',
+    wait: 'UZGAIDI…',
+    createAccount: 'IZVEIDOT KONTU',
+    signUp: 'REĢISTRĒTIES',
+    logIn: 'PIESLĒGTIES',
+    language: 'VALODA',
+    return: 'ATGRIEZTIES',
+    logOut: 'ATSLĒGTIES',
+    noSaves: 'NAV SAGLABĀTU SPĒĻU.',
+    inventory: 'INVENTĀRS',
+    backToGame: 'ATGRIEZTIES SPĒLĒ',
+    emptyInventory: 'NAV ATRASTU PRIEKŠMETU',
+    item: 'PRIEKŠMETS',
+    required: 'Nepieciešams:',
+    retrySave: 'MĒĢINĀT SAGLABĀT VĒLREIZ',
+    next: 'TĀLĀK',
+    playtime: 'SPĒLES LAIKS',
+    totalPlayed: 'KOPĀ SPĒLĒTS:',
+    end: 'BEIGT',
+    loggedIn: 'Pieslēdzies:',
+    adminHeading: 'Spēles saturs',
+    scenarios: 'Scenāriji',
+    items: 'Priekšmeti',
+    new: 'JAUNS',
+    edit: 'REDIĢĒT',
+    delete: 'DZĒST',
+    scenarioName: 'Nosaukums',
+    description: 'Apraksts',
+    riskZone: 'Riska zona',
+    safe: 'Droša',
+    caution: 'Uzmanību',
+    danger: 'Bīstama',
+    order: 'Kārtība',
+    choice: 'Izvēle',
+    choiceText: 'Izvēles teksts',
+    consequence: 'Sekas',
+    nextScenario: 'Nākamais scenārijs',
+    noValue: 'Nav',
+    endingType: 'Beigu veids',
+    goodEnding: 'Labas beigas',
+    badEnding: 'Sliktas beigas',
+    requiredItem: 'Nepieciešamais priekšmets',
+    rewardItem: 'Atlīdzības priekšmets',
+    rewardChance: 'Atlīdzības iespēja (0–1)',
+    endingTitle: 'Beigu virsraksts',
+    endingText: 'Beigu teksts',
+    save: 'SAGLABĀT',
+    saveScenario: 'SAGLABĀT SCENĀRIJU',
+    saveItem: 'SAGLABĀT PRIEKŠMETU',
+    cancel: 'ATCELT',
+    newScenario: 'Jauns scenārijs',
+    editScenario: 'Rediģēt scenāriju',
+    newItem: 'Jauns priekšmets',
+    editItem: 'Rediģēt priekšmetu',
+    itemName: 'Nosaukums',
+    adminOnly: 'Šī lapa pieejama tikai administratoram.',
+    signInToStart: 'Pieslēdzies vai reģistrējies, lai sāktu un saglabātu spēli.',
+    signInToContinue: 'Pieslēdzies, lai skatītu saglabātās spēles.',
+    noScenarios: 'Nav pieejamu scenāriju. Palaid datubāzes sēklu komandu.',
+    saveFailed: 'Neizdevās saglabāt spēli.',
   },
-  {
-    description: 'IT HAS SURVIVED NOT ONLY MANY DECADES, BUT ALSO THE LEAP INTO ELECTRONIC TYPESSETTING, REMAINING ESSENTIALLY UNCHANGED.',
-    playtime: 'XX:XX',
-  },
-]
+}
 
-const adminCards = [
-  { title: 'Aktīvie spēlētāji', value: '184' },
-  { title: 'Pabeigtas misijas', value: '53' },
-  { title: 'Gadījumi', value: '12' },
-  { title: 'Sistēmas statuss', value: 'Normāli' },
-]
+const storyTranslations = {
+  '1. SCENĀRIJS — BRUKUMS': {
+    title: 'SCENARIO 1 — COLLAPSE',
+    description: 'On a boring Friday night, you wander deep into old underground tunnels. There are so many passages that you cannot tell how many there are or where you are. You are lost. It is dark and cold; the only light comes from your phone. Ancient medieval walls surround you. Suddenly, something rumbles in the distance. The ground shakes. A cloud of dust rushes toward you, and three passages lie ahead.',
+    choices: [
+      ['Run into the blocked passage wall.', 'You believe in fairytales and sprint straight into the wall. It does not move. You lose consciousness and lie there hoping someone will save you.', 'THE WALL WINS', 'The wall remains undefeated. Your underground adventure ends before it has really begun.'],
+      ['Hide beneath the arch in the second passage.', 'You duck beneath the arch. The collapse thunders past, but the stone holds. When the dust settles, you are still alive.'],
+      ['Run down the long passage away from the dust.', 'You sprint into the darkness. The tunnel shakes, but you outrun the collapse and reach a safer room.'],
+    ],
+  },
+  '2. NOTIKUMS — VĒJA VIRZIENS': {
+    title: 'EVENT 2 — FOLLOW THE WIND',
+    description: 'You have made it to a safer place. Nothing is collapsing here. Wait… there is a breeze. It flows through the tunnels from outside. Maybe it can lead you out.',
+    choices: [
+      ['Follow the breeze toward the fresh air.', 'You follow the wind through a quiet, narrow passage. The air grows warmer and smells of rain.'],
+      ['Go back toward the collapse.', 'The tunnel cracks again. This time, the ceiling caves in before you can turn around.', 'BURIED UNDERGROUND', 'You went back toward the collapse. The old tunnels sealed your way out forever.'],
+      ['Squeeze through a low maintenance passage.', 'You crawl through a narrow gap and get beyond the damaged tunnels. A faint green light glows ahead.'],
+    ],
+  },
+  '3. NOTIKUMS — IZEJA': {
+    title: 'EVENT 3 — THE EXIT',
+    description: 'There is light ahead! Wait… it is nighttime outside. The wind has led you to a small exit, but it is too narrow to squeeze through. A piece of metal lies nearby, and the tunnel continues farther on.',
+    choices: [
+      ['Widen the exit with the piece of metal.', 'You wedge the metal into the gap and make the opening wider. Stones shift overhead, but you manage to get outside.'],
+      ['Go farther and look for another exit.', 'You keep going instead of risking the fragile opening. A wider passage leads you outside beneath the trees.'],
+      ['Follow the narrow ventilation shaft toward the traffic sounds.', 'The shaft is tight, but it leads to a maintenance hatch by the road. You open it and step out into the night.'],
+    ],
+  },
+  '4. NOTIKUMS — PAZAUDĒTĀ ATSLĒGA': {
+    title: 'EVENT 4 — THE MISSING KEY',
+    description: 'At last, you are outside and heading home. At the door, you check your pockets. Your house key is missing! The lights are off, but you remember that one window was left unlocked.',
+    choices: [
+      ['Go back into the tunnels to look for the keys.', 'You head back underground to search for your keys. The weakened tunnels begin collapsing around you.', 'LOST AGAIN', 'The tunnels collapse before you find the keys. Going back underground was the wrong way home.'],
+      ['Climb through the open window.', 'You carefully climb through the unlocked window and make it safely inside.'],
+      ['Use the spare key hidden outside.', 'You remember the spare key under the flowerpot. It is still there, and you get inside without climbing.'],
+    ],
+  },
+  '5. NOTIKUMS — BEIDZOT MĀJĀS': {
+    title: 'EVENT 5 — FINALLY HOME',
+    description: 'You are home. As the adrenaline fades, you notice your leg hurts. There is blood on your trousers, and the scrape looks worse than you first thought.',
+    choices: [
+      ['Wash the wound and bandage it with the strip of fabric.', 'You clean the wound and bandage it carefully. It stings, but the bleeding stops. You survived the tunnels and took care of yourself.', 'THAT WAS A GOOD FRIDAY', 'You made it home, treated your wound, and survived to tell the story. That was a good Friday. It was fun.'],
+      ['Ignore the wound and go straight to bed.', 'You ignore the bleeding wound and lie down. The pain gets worse, and the room begins to spin.', 'YOU SHOULD HAVE CLEANED THE WOUND', 'The wound becomes infected while you sleep. The adventure ends because of something that could have been avoided.'],
+      ['Call a friend to help clean and bandage the wound.', 'A friend arrives with a first-aid kit and helps clean and bandage your wound. You are safe, your leg hurts, and you are already planning a less dangerous Friday.', 'THAT WAS A GOOD FRIDAY', 'You made it home, got help, and survived to tell the story. That was a good Friday. It was fun.'],
+    ],
+  },
+}
+
+const itemNameTranslations = {
+  'Ticība pasakām': 'Belief in fairytales',
+  'Metāla gabals': 'Piece of metal',
+  'Auduma strēmele': 'Strip of fabric',
+  'Mājas atslēga': 'House key',
+  'Veiksmes monēta': 'Lucky coin',
+}
+
+function uiText(key) {
+  return uiTranslations[selectedLanguage.value][key] ?? key
+}
+
+function translateStoryText(value) {
+  if (selectedLanguage.value !== 'EN' || !value) return value
+  for (const [title, translation] of Object.entries(storyTranslations)) {
+    if (value === title) return translation.title
+    if (value === scenarios.value.find((scenario) => scenario.title === title)?.description) return translation.description
+    const choiceIndex = scenarios.value.find((scenario) => scenario.title === title)
+      ?.choices.findIndex((choice) => choice.label === value)
+    if (choiceIndex !== undefined && choiceIndex >= 0) {
+      const [label, aftermath, endingTitle, endingText] = translation.choices[choiceIndex]
+      if (value === scenarios.value.find((scenario) => scenario.title === title)?.choices[choiceIndex]?.label) return label
+      if (value === scenarios.value.find((scenario) => scenario.title === title)?.choices[choiceIndex]?.aftermath) return aftermath
+      if (value === scenarios.value.find((scenario) => scenario.title === title)?.choices[choiceIndex]?.ending_title) return endingTitle
+      if (value === scenarios.value.find((scenario) => scenario.title === title)?.choices[choiceIndex]?.ending_text) return endingText
+    }
+  }
+  const item = items.value.find((entry) => entry.name === value)
+  if (item) return itemNameTranslations[value] ?? value
+  const itemDescription = items.value.find((entry) => entry.description === value)
+  if (itemDescription) {
+    const descriptions = {
+      'Ticība pasakām': 'A stubborn belief that a wall might open if you run into it.',
+      'Metāla gabals': 'A heavy piece of metal from the old tunnels. It could help widen a narrow exit.',
+      'Auduma strēmele': 'A strip of fabric torn from an old covering. It could be useful for bandaging a wound.',
+      'Mājas atslēga': 'A key you thought you had lost. It lets you get home without climbing through a window.',
+      'Veiksmes monēta': 'A coin found in the dust. It looks like a lucky charm.',
+    }
+    return descriptions[itemDescription.name] ?? value
+  }
+  return value
+}
 
 const storyScenes = [
   {
@@ -197,28 +442,41 @@ const storyScenes = [
   },
 ]
 
-const currentScene = computed(() => storyScenes[currentSceneIndex.value])
+const currentScene = computed(() =>
+  scenarios.value.find((scenario) => scenario.id === currentScenarioId.value)
+  ?? scenarios.value[0]
+  ?? { title: '', risk_zone: 'caution', description: '', choices: [] },
+)
 const inventorySlots = computed(() =>
   Array.from({ length: Math.max(6, inventory.value.length) }, (_, index) => inventory.value[index] ?? null),
 )
 const selectedItemDescription = computed(() =>
-  selectedInventoryItem.value ? itemDescriptions[selectedInventoryItem.value] ?? 'A found item from your journey.' : 'Select an item to view its description.',
+  selectedInventoryItem.value
+    ? translateStoryText(selectedInventoryItem.value.description)
+    : selectedLanguage.value === 'EN' ? 'Select an item to view its description.' : 'Izvēlies priekšmetu, lai apskatītu tā aprakstu.',
 )
+const aftermathDisplay = computed(() => {
+  const translated = translateStoryText(aftermathText.value)
+  if (!aftermathReward.value) return translated
+  if (!aftermathReward.value.found) {
+    return `${translated} ${selectedLanguage.value === 'EN' ? 'This time, you did not find an item.' : 'Šoreiz priekšmetu neizdevās atrast.'}`
+  }
+  const name = translateStoryText(aftermathReward.value.item.name)
+  return `${translated} ${selectedLanguage.value === 'EN' ? `Found item: ${name}.` : `Atradi priekšmetu: ${name}.`}`
+})
 const formattedPlaytime = computed(() => {
-  const hours = Math.min(Math.floor(elapsedSeconds.value / 3600), 99)
-  const minutes = Math.floor((elapsedSeconds.value % 3600) / 60)
-  const seconds = elapsedSeconds.value % 60
-  return [hours, minutes, seconds].map((part) => String(part).padStart(2, '0')).join(':')
+  const seconds = Math.min(elapsedSeconds.value, 5999)
+  return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
 })
 
-function stopGameTimer() {
+function legacyStopGameTimer() {
   if (gameTimer !== null) {
     clearInterval(gameTimer)
     gameTimer = null
   }
 }
 
-function startGameTimer() {
+function legacyStartGameTimer() {
   stopGameTimer()
   elapsedSeconds.value = 0
   gameStartedAt.value = Date.now()
@@ -232,7 +490,7 @@ function startGameTimer() {
   }, 250)
 }
 
-function openScreen(screen) {
+function legacyOpenScreen(screen) {
   currentScreen.value = screen
   if (screen === 'game') {
     currentSceneIndex.value = 0
@@ -245,7 +503,7 @@ function openScreen(screen) {
   }
 }
 
-function goBack() {
+function legacyGoBack() {
   stopGameTimer()
   gameStartedAt.value = null
   currentScreen.value = 'menu'
@@ -256,21 +514,22 @@ function goBack() {
   ending.value = null
 }
 
-function toggleInventory() {
+function legacyToggleInventory() {
   currentScreen.value = currentScreen.value === 'inventory' ? 'game' : 'inventory'
   selectedInventoryItem.value = inventory.value[0] ?? null
 }
 
-function toggleLanguage() {
+function legacyToggleLanguage() {
   selectedLanguage.value = selectedLanguage.value === 'EN' ? 'LV' : 'EN'
 }
 
-function chooseStoryOption(option) {
+function legacyChooseStoryOption(option) {
   if (option.requiredItem && !inventory.value.includes(option.requiredItem)) {
     return
   }
 
   aftermathText.value = option.aftermath
+  aftermathReward.value = null
   pendingEnding.value = option.ending ?? null
   pendingNextScene.value = option.next ?? null
   if (option.reward) {
@@ -286,7 +545,7 @@ function chooseStoryOption(option) {
   currentScreen.value = 'aftermath'
 }
 
-function continueAftermath() {
+function legacyContinueAftermath() {
   if (pendingEnding.value) {
     ending.value = pendingEnding.value
     if (gameStartedAt.value !== null) {
@@ -306,6 +565,477 @@ function continueAftermath() {
   currentScreen.value = 'game'
 }
 
+async function apiRequest(path, options = {}) {
+  const headers = { Accept: 'application/json', ...options.headers }
+  if (options.body) headers['Content-Type'] = 'application/json'
+  if (csrfToken.value) headers['X-CSRF-TOKEN'] = csrfToken.value
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 12000)
+
+  try {
+    const response = await fetch(`/game-api${path}`, {
+      credentials: 'same-origin',
+      ...options,
+      headers,
+      signal: controller.signal,
+    })
+    const responseText = response.status === 204 ? '' : await response.text()
+    let payload = {}
+    if (responseText) {
+      try {
+        payload = JSON.parse(responseText)
+      } catch {
+        throw new Error(`The game server returned an invalid response (${response.status}).`)
+      }
+    }
+
+    if (!response.ok) {
+      const errors = Object.values(payload.errors ?? {}).flat().join(' ')
+      throw new Error(errors || payload.message || `Request failed (${response.status}).`)
+    }
+
+    if (payload.csrf_token) csrfToken.value = payload.csrf_token
+    return payload
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      throw new Error('The game server did not respond. Check that the Laravel backend is running, then try again.')
+    }
+    if (error instanceof TypeError) {
+      throw new Error('Could not connect to the game server. Check the backend address and try again.')
+    }
+    throw error
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
+async function loadBootstrap() {
+  const payload = await apiRequest('/bootstrap')
+  scenarios.value = payload.scenarios
+  items.value = payload.items
+  currentUser.value = payload.user
+}
+
+function currentElapsedSeconds() {
+  if (gameStartedAt.value !== null) {
+    elapsedSeconds.value = Math.min(Math.floor((Date.now() - gameStartedAt.value) / 1000), 5999)
+  }
+  return elapsedSeconds.value
+}
+
+function stopGameTimer() {
+  if (gameTimer !== null) clearInterval(gameTimer)
+  gameTimer = null
+  currentElapsedSeconds()
+  gameStartedAt.value = null
+}
+
+function startGameTimer(initialSeconds = 0) {
+  stopGameTimer()
+  elapsedSeconds.value = Math.min(initialSeconds, 5999)
+  gameStartedAt.value = Date.now() - elapsedSeconds.value * 1000
+  lastAutosavedSecond = elapsedSeconds.value
+  gameTimer = setInterval(() => {
+    currentElapsedSeconds()
+    if (
+      gameSessionId.value
+      && elapsedSeconds.value > 0
+      && elapsedSeconds.value % 15 === 0
+      && elapsedSeconds.value > lastAutosavedSecond
+    ) {
+      lastAutosavedSecond = elapsedSeconds.value
+      void saveCurrentSession()
+    }
+  }, 1000)
+}
+
+async function saveCurrentSession(completed = false) {
+  if (!gameSessionId.value || !currentScenarioId.value) return true
+  const payload = {
+    current_scenario_id: currentScenarioId.value,
+    inventory: inventory.value.map((item) => item.id),
+    elapsed_seconds: currentElapsedSeconds(),
+    is_completed: completed,
+  }
+  saveError.value = ''
+
+  try {
+    await apiRequest(`/sessions/${gameSessionId.value}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    })
+    lastAutosavedSecond = payload.elapsed_seconds
+    return true
+  } catch (error) {
+    saveError.value = error.message
+    return false
+  }
+}
+
+async function openScreen(screen) {
+  apiError.value = ''
+  if (screen === 'login' && currentUser.value) {
+    currentScreen.value = 'settings'
+    return
+  }
+  if (screen === 'game') {
+    if (!currentUser.value) {
+      apiError.value = uiText('signInToStart')
+      currentScreen.value = 'login'
+      authMode.value = 'signup'
+      return
+    }
+    await startNewGame()
+    return
+  }
+  if (screen === 'continue') {
+    if (!currentUser.value) {
+      apiError.value = uiText('signInToContinue')
+      currentScreen.value = 'login'
+      authMode.value = 'login'
+      return
+    }
+    try {
+      const payload = await apiRequest('/sessions')
+      savedSessionsFromApi.value = payload.sessions
+      currentScreen.value = 'continue'
+    } catch (error) {
+      apiError.value = error.message
+    }
+    return
+  }
+  if (screen === 'admin') {
+    if (!currentUser.value?.is_admin) {
+      apiError.value = uiText('adminOnly')
+      return
+    }
+    await loadAdminData()
+    currentScreen.value = 'admin'
+    return
+  }
+  currentScreen.value = screen
+}
+
+async function startNewGame() {
+  if (!scenarios.value.length) {
+    apiError.value = uiText('noScenarios')
+    return
+  }
+
+  busy.value = true
+  apiError.value = ''
+  const startingItem = scenarios.value[0].choices.find((choice) => choice.required_item)?.required_item ?? null
+  try {
+    const payload = await apiRequest('/sessions', {
+      method: 'POST',
+      body: JSON.stringify({
+        current_scenario_id: scenarios.value[0].id,
+        inventory: startingItem ? [startingItem.id] : [],
+        elapsed_seconds: 0,
+        is_completed: false,
+      }),
+    })
+    gameSessionId.value = payload.session.id
+    currentScenarioId.value = payload.session.scenario_id
+    inventory.value = startingItem ? [startingItem] : []
+    aftermathText.value = ''
+    pendingEnding.value = null
+    pendingNextScene.value = null
+    ending.value = null
+    currentScreen.value = 'game'
+    startGameTimer()
+  } catch (error) {
+    apiError.value = error.message
+  } finally {
+    busy.value = false
+  }
+}
+
+async function resumeSession(session) {
+  busy.value = true
+  apiError.value = ''
+  try {
+    const payload = await apiRequest(`/sessions/${session.id}`)
+    const saved = payload.session
+    gameSessionId.value = saved.id
+    currentScenarioId.value = saved.scenario_id
+    inventory.value = items.value.filter((item) => saved.inventory.includes(item.id))
+    selectedInventoryItem.value = inventory.value[0] ?? null
+    aftermathText.value = ''
+    pendingEnding.value = null
+    pendingNextScene.value = null
+    ending.value = null
+    currentScreen.value = 'game'
+    startGameTimer(saved.elapsed_seconds)
+  } catch (error) {
+    apiError.value = error.message
+  } finally {
+    busy.value = false
+  }
+}
+
+async function goBack() {
+  if (currentScreen.value === 'game') await saveCurrentSession()
+  stopGameTimer()
+  currentScreen.value = 'menu'
+}
+
+function toggleInventory() {
+  if (currentScreen.value !== 'inventory') {
+    inventoryReturnScreen.value = currentScreen.value
+    currentScreen.value = 'inventory'
+  } else {
+    currentScreen.value = inventoryReturnScreen.value
+  }
+  selectedInventoryItem.value = inventory.value[0] ?? null
+}
+
+function toggleLanguage() {
+  selectedLanguage.value = selectedLanguage.value === 'EN' ? 'LV' : 'EN'
+  localStorage.setItem('game-language', selectedLanguage.value)
+}
+
+async function submitAuth() {
+  if (busy.value) return
+  busy.value = true
+  apiError.value = ''
+  try {
+    const isSignup = authMode.value === 'signup'
+    const payload = {
+      username: authForm.value.username,
+      password: authForm.value.password,
+      ...(isSignup
+        ? {
+            email: authForm.value.email,
+            password_confirmation: authForm.value.password_confirmation,
+          }
+        : {}),
+    }
+    const result = await apiRequest(isSignup ? '/register' : '/login', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+    currentUser.value = result.user
+    authForm.value = { username: '', email: '', password: '', password_confirmation: '' }
+    currentScreen.value = 'menu'
+  } catch (error) {
+    apiError.value = error.message
+  } finally {
+    busy.value = false
+  }
+}
+
+async function logoutUser() {
+  busy.value = true
+  apiError.value = ''
+  try {
+    if (gameSessionId.value && currentScreen.value === 'game') await saveCurrentSession()
+    await apiRequest('/logout', { method: 'POST' })
+    await loadBootstrap()
+    gameSessionId.value = null
+    stopGameTimer()
+    currentScreen.value = 'menu'
+  } catch (error) {
+    apiError.value = error.message
+  } finally {
+    busy.value = false
+  }
+}
+
+function chooseStoryOption(option) {
+  if (option.required_item && !inventory.value.some((item) => item.id === option.required_item.id)) return
+
+  aftermathText.value = option.aftermath
+  pendingEnding.value = option.ending_kind
+    ? { title: option.ending_title, text: option.ending_text, kind: option.ending_kind }
+    : null
+  pendingNextScene.value = option.next_scenario_id
+
+  if (option.reward_item && Math.random() < option.reward_chance) {
+    if (!inventory.value.some((item) => item.id === option.reward_item.id)) {
+      inventory.value.push(option.reward_item)
+    }
+    aftermathReward.value = { found: true, item: option.reward_item }
+  } else if (option.reward_item) {
+    aftermathReward.value = { found: false, item: null }
+  }
+  currentScreen.value = 'aftermath'
+  void saveCurrentSession()
+}
+
+async function continueAftermath() {
+  if (saveError.value) return
+  if (pendingEnding.value) {
+    if (!await saveCurrentSession(true)) return
+    ending.value = pendingEnding.value
+    stopGameTimer()
+    currentScreen.value = 'end'
+    return
+  }
+
+  const currentIndex = scenarios.value.findIndex((scenario) => scenario.id === currentScenarioId.value)
+  currentScenarioId.value = pendingNextScene.value
+    ?? scenarios.value[currentIndex + 1]?.id
+    ?? currentScenarioId.value
+  pendingNextScene.value = null
+  if (!await saveCurrentSession()) return
+  currentScreen.value = 'game'
+}
+
+async function quitGame() {
+  await saveCurrentSession()
+  stopGameTimer()
+  currentScreen.value = 'menu'
+}
+
+function newScenarioDraft() {
+  editingScenarioId.value = null
+  scenarioDraft.value = {
+    title: '',
+    description: '',
+    risk_zone: 'caution',
+    sort_order: adminScenarios.value.length + 1,
+    choices: Array.from({ length: 3 }, () => ({
+      label: '',
+      aftermath: '',
+      next_scenario_id: '',
+      required_item_id: '',
+      reward_item_id: '',
+      reward_chance: '',
+      ending_title: '',
+      ending_text: '',
+      ending_kind: '',
+    })),
+  }
+}
+
+function editScenario(scenario) {
+  editingScenarioId.value = scenario.id
+  scenarioDraft.value = {
+    title: scenario.title,
+    description: scenario.description,
+    risk_zone: scenario.risk_zone,
+    sort_order: scenario.sort_order,
+    choices: scenario.choices.map((choice) => ({
+      label: choice.label,
+      aftermath: choice.aftermath,
+      next_scenario_id: choice.next_scenario_id ?? '',
+      required_item_id: choice.required_item?.id ?? '',
+      reward_item_id: choice.reward_item?.id ?? '',
+      reward_chance: choice.reward_chance ?? '',
+      ending_title: choice.ending_title ?? '',
+      ending_text: choice.ending_text ?? '',
+      ending_kind: choice.ending_kind ?? '',
+    })),
+  }
+}
+
+async function loadAdminData() {
+  try {
+    const payload = await apiRequest('/admin')
+    adminScenarios.value = payload.scenarios
+    adminItems.value = payload.items
+    newScenarioDraft()
+  } catch (error) {
+    apiError.value = error.message
+  }
+}
+
+async function saveScenario() {
+  busy.value = true
+  apiError.value = ''
+  const draft = scenarioDraft.value
+  const data = {
+    title: draft.title,
+    description: draft.description,
+    risk_zone: draft.risk_zone,
+    sort_order: Number(draft.sort_order),
+    choices: draft.choices.map((choice) => ({
+      label: choice.label,
+      aftermath: choice.aftermath,
+      next_scenario_id: choice.next_scenario_id ? Number(choice.next_scenario_id) : null,
+      required_item_id: choice.required_item_id ? Number(choice.required_item_id) : null,
+      reward_item_id: choice.reward_item_id ? Number(choice.reward_item_id) : null,
+      reward_chance: choice.reward_chance === '' ? null : Number(choice.reward_chance),
+      ending_title: choice.ending_title || null,
+      ending_text: choice.ending_text || null,
+      ending_kind: choice.ending_kind || null,
+    })),
+  }
+  try {
+    const path = editingScenarioId.value
+      ? `/admin/scenarios/${editingScenarioId.value}`
+      : '/admin/scenarios'
+    await apiRequest(path, {
+      method: editingScenarioId.value ? 'PUT' : 'POST',
+      body: JSON.stringify(data),
+    })
+    await loadAdminData()
+    await loadBootstrap()
+  } catch (error) {
+    apiError.value = error.message
+  } finally {
+    busy.value = false
+  }
+}
+
+async function deleteScenario(scenario) {
+  if (!window.confirm(`Dzēst scenāriju “${scenario.title}”?`)) return
+  try {
+    await apiRequest(`/admin/scenarios/${scenario.id}`, { method: 'DELETE' })
+    await loadAdminData()
+    await loadBootstrap()
+  } catch (error) {
+    apiError.value = error.message
+  }
+}
+
+function editItem(item) {
+  editingItemId.value = item.id
+  itemDraft.value = { name: item.name, description: item.description }
+}
+
+async function saveItem() {
+  busy.value = true
+  apiError.value = ''
+  try {
+    const path = editingItemId.value ? `/admin/items/${editingItemId.value}` : '/admin/items'
+    await apiRequest(path, {
+      method: editingItemId.value ? 'PUT' : 'POST',
+      body: JSON.stringify(itemDraft.value),
+    })
+    editingItemId.value = null
+    itemDraft.value = { name: '', description: '' }
+    await loadAdminData()
+    await loadBootstrap()
+  } catch (error) {
+    apiError.value = error.message
+  } finally {
+    busy.value = false
+  }
+}
+
+async function deleteItem(item) {
+  if (!window.confirm(`Dzēst priekšmetu “${item.name}”?`)) return
+  try {
+    await apiRequest(`/admin/items/${item.id}`, { method: 'DELETE' })
+    await loadAdminData()
+    await loadBootstrap()
+  } catch (error) {
+    apiError.value = error.message
+  }
+}
+
+onMounted(async () => {
+  const savedLanguage = localStorage.getItem('game-language')
+  if (savedLanguage === 'EN' || savedLanguage === 'LV') selectedLanguage.value = savedLanguage
+  try {
+    await loadBootstrap()
+  } catch (error) {
+    apiError.value = error.message
+  }
+})
+
 onUnmounted(stopGameTimer)
 </script>
 
@@ -313,8 +1043,8 @@ onUnmounted(stopGameTimer)
   <div class="app-shell">
     <div class="screen-frame">
       <header v-if="!['menu', 'continue', 'aftermath', 'end', 'login', 'settings', 'inventory'].includes(currentScreen)" class="topbar topbar-compact">
-        <button class="ghost-button" @click="goBack">Atgriezties</button>
-        <span class="brand subtle">{{ currentScreen === 'game' ? 'Spēle' : currentScreen === 'end' ? 'Spēles beigas' : currentScreen === 'settings' ? 'Iestatījumi' : currentScreen === 'login' ? 'Pieslēgties' : 'Administrators' }}</span>
+        <button class="ghost-button" @click="goBack">{{ uiText('back') }}</button>
+        <span class="brand subtle">{{ currentScreen === 'game' ? uiText('game') : currentScreen === 'end' ? uiText('gameEnd') : uiText('adminScreen') }}</span>
       </header>
 
       <main :class="['screen-body', { 'screen-body-flush': ['login', 'settings', 'inventory'].includes(currentScreen) }]">
@@ -334,19 +1064,20 @@ onUnmounted(stopGameTimer)
                     {{ button.label }}
                   </button>
                 </div>
+                <p v-if="currentUser" class="account-status">{{ uiText('loggedIn') }} {{ currentUser.username }}</p>
+                <p v-if="apiError" class="api-error" role="alert">{{ apiError }}</p>
               </div>
 
               <div class="menu-right">
                 <p class="menu-copy">
-                  LOREM IPSUM IS SIMPLY DUMMY TEXT OF THE<br />
-                  PRINTING AND TYPESETTING INDUSTRY.
+                  {{ selectedLanguage === 'EN'
+                    ? 'Lost beneath the city. Find your way through the tunnels and make it home.'
+                    : 'Pazudis pazemē. Atrodi ceļu cauri tuneļiem un tiec mājās.' }}
                 </p>
                 <p class="menu-copy accent">
-                  LOREM IPSUM HAS BEEN THE INDUSTRY'S<br />
-                  STANDARD DUMMY TEXT EVER SINCE 1966,<br />
-                  WHEN DESIGNERS AT LETRASET AND JAMES<br />
-                  MOSLEY, THE LIBRARIAN AT ST BRIDE<br />
-                  PRINTING LIBRARY IN LONDON
+                  {{ selectedLanguage === 'EN'
+                    ? 'Every choice matters. Some paths are safe, some are dangerous, and not every story ends well.'
+                    : 'Katrai izvēlei ir nozīme. Daži ceļi ir droši, citi bīstami, un ne katrs stāsts beidzas labi.' }}
                 </p>
               </div>
             </div>
@@ -355,24 +1086,39 @@ onUnmounted(stopGameTimer)
 
         <section v-else-if="currentScreen === 'login'" class="panel-view login-view">
           <div class="login-card">
-            <button class="auth-return" type="button" @click="goBack">RETURN TO MENU</button>
-            <form class="login-form" @submit.prevent>
-              <input autocomplete="username" name="username" placeholder="USERNAME" required />
+            <button class="auth-return" type="button" @click="goBack">{{ uiText('returnMenu') }}</button>
+            <form class="login-form" @submit.prevent="submitAuth">
+              <input v-model="authForm.username" autocomplete="username" name="username" :placeholder="uiText('username')" required />
               <input
+                v-if="authMode === 'signup'"
+                v-model="authForm.email"
+                autocomplete="email"
+                name="email"
+                :placeholder="uiText('email')"
+                required
+                type="email"
+              />
+              <input
+                v-model="authForm.password"
                 autocomplete="new-password"
                 name="password"
-                placeholder="PASSWORD"
+                :placeholder="uiText('password')"
                 required
                 type="password"
               />
               <input
                 v-if="authMode === 'signup'"
+                v-model="authForm.password_confirmation"
                 autocomplete="new-password"
-                name="confirm-password"
-                placeholder="CONFIRM PASSWORD"
+                name="password_confirmation"
+                :placeholder="uiText('confirmPassword')"
                 required
                 type="password"
               />
+              <p v-if="apiError" class="api-error" role="alert">{{ apiError }}</p>
+              <button class="auth-submit" type="submit" :disabled="busy">
+                {{ busy ? uiText('wait') : authMode === 'signup' ? uiText('createAccount') : uiText('logIn') }}
+              </button>
             </form>
             <div class="login-actions">
               <button
@@ -380,14 +1126,14 @@ onUnmounted(stopGameTimer)
                 type="button"
                 @click="authMode = 'signup'"
               >
-                SIGN UP
+                {{ uiText('signUp') }}
               </button>
               <button
                 :class="{ selected: authMode === 'login' }"
                 type="button"
                 @click="authMode = 'login'"
               >
-                LOG IN
+                {{ uiText('logIn') }}
               </button>
             </div>
           </div>
@@ -396,61 +1142,171 @@ onUnmounted(stopGameTimer)
         <section v-else-if="currentScreen === 'settings'" class="panel-view settings-view">
           <div class="settings-actions">
             <button class="settings-button" @click="toggleLanguage">
-              LANGUAGE <span class="language-code">{{ selectedLanguage }}</span>
+              {{ uiText('language') }} <span class="language-code">{{ selectedLanguage }}</span>
             </button>
-            <button class="settings-button" @click="goBack">RETURN</button>
-            <button class="settings-button logout" @click="goBack">LOG OUT</button>
+            <button class="settings-button" @click="goBack">{{ uiText('return') }}</button>
+            <button v-if="currentUser" class="settings-button logout" :disabled="busy" @click="logoutUser">{{ uiText('logOut') }}</button>
+            <button v-else class="settings-button logout" @click="openScreen('login')">{{ uiText('logIn') }}</button>
+            <p v-if="apiError" class="api-error" role="alert">{{ apiError }}</p>
           </div>
         </section>
 
         <section v-else-if="currentScreen === 'continue'" class="panel-view continue-view">
           <div class="continue-panel">
-            <div v-for="(session, index) in savedSessions" :key="index" class="continue-row">
-              <span class="continue-text">{{ session.description }}</span>
+            <button
+              v-for="session in savedSessionsFromApi"
+              :key="session.id"
+              class="continue-row"
+              :disabled="busy"
+              @click="resumeSession(session)"
+            >
+              <span class="continue-text">{{ translateStoryText(session.scenario_description) }}</span>
               <span class="continue-time">{{ session.playtime }}</span>
-            </div>
+            </button>
 
-            <button class="return-button" @click="goBack">RETURN</button>
+            <p v-if="apiError" class="api-error" role="alert">{{ apiError }}</p>
+            <p v-else-if="!savedSessionsFromApi.length" class="continue-empty">{{ uiText('noSaves') }}</p>
+            <button class="return-button" @click="goBack">{{ uiText('return') }}</button>
           </div>
         </section>
 
         <section v-else-if="currentScreen === 'admin'" class="panel-view admin-view">
           <div class="panel-card admin-card">
-            <p class="eyebrow">Administratora panelis</p>
-            <h2>Administratīvā statistika</h2>
-            <div class="admin-grid">
-              <article v-for="card in adminCards" :key="card.title" class="admin-stat">
-                <span>{{ card.title }}</span>
-                <strong>{{ card.value }}</strong>
-              </article>
+            <div class="admin-heading">
+              <div>
+                <p class="eyebrow">Administratora panelis</p>
+                <h2>{{ uiText('adminHeading') }}</h2>
+              </div>
+              <button type="button" @click="goBack">{{ uiText('return') }}</button>
+            </div>
+            <p v-if="apiError" class="api-error" role="alert">{{ apiError }}</p>
+            <div class="admin-layout">
+              <section class="admin-list">
+                <div class="admin-heading">
+                  <h3>{{ uiText('scenarios') }}</h3>
+                  <button type="button" @click="newScenarioDraft">{{ uiText('new') }}</button>
+                </div>
+                <article v-for="scenario in adminScenarios" :key="scenario.id" class="admin-entry">
+                  <div>
+                    <strong>{{ scenario.title }}</strong>
+                    <p>{{ scenario.description }}</p>
+                  </div>
+                  <div class="admin-entry-actions">
+                    <button type="button" @click="editScenario(scenario)">{{ uiText('edit') }}</button>
+                    <button type="button" @click="deleteScenario(scenario)">{{ uiText('delete') }}</button>
+                  </div>
+                </article>
+              </section>
+
+              <form v-if="scenarioDraft" class="admin-editor" @submit.prevent="saveScenario">
+                <h3>{{ editingScenarioId ? uiText('editScenario') : uiText('newScenario') }}</h3>
+                <label>{{ uiText('scenarioName') }}<input v-model="scenarioDraft.title" required maxlength="255" /></label>
+                <label>{{ uiText('description') }}<textarea v-model="scenarioDraft.description" required rows="4" /></label>
+                <div class="admin-inline-fields">
+                  <label>{{ uiText('riskZone') }}
+                    <select v-model="scenarioDraft.risk_zone">
+                      <option value="safe">{{ uiText('safe') }}</option>
+                      <option value="caution">{{ uiText('caution') }}</option>
+                      <option value="danger">{{ uiText('danger') }}</option>
+                    </select>
+                  </label>
+                  <label>{{ uiText('order') }}<input v-model.number="scenarioDraft.sort_order" type="number" min="0" required /></label>
+                </div>
+                <fieldset v-for="(choice, index) in scenarioDraft.choices" :key="index" class="choice-editor">
+                  <legend>{{ uiText('choice') }} {{ index + 1 }}</legend>
+                  <label>{{ uiText('choiceText') }}<input v-model="choice.label" required /></label>
+                  <label>{{ uiText('consequence') }}<textarea v-model="choice.aftermath" required rows="2" /></label>
+                  <div class="admin-inline-fields">
+                    <label>{{ uiText('nextScenario') }}
+                      <select v-model="choice.next_scenario_id">
+                        <option value="">{{ uiText('noValue') }}</option>
+                        <option v-for="option in adminScenarios" :key="option.id" :value="option.id">
+                          {{ option.title }}
+                        </option>
+                      </select>
+                    </label>
+                    <label>{{ uiText('endingType') }}
+                      <select v-model="choice.ending_kind">
+                        <option value="">{{ uiText('noValue') }}</option>
+                        <option value="good">{{ uiText('goodEnding') }}</option>
+                        <option value="dead">{{ uiText('badEnding') }}</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="admin-inline-fields">
+                    <label>{{ uiText('requiredItem') }}
+                      <select v-model="choice.required_item_id">
+                        <option value="">{{ uiText('noValue') }}</option>
+                        <option v-for="item in adminItems" :key="item.id" :value="item.id">{{ item.name }}</option>
+                      </select>
+                    </label>
+                    <label>{{ uiText('rewardItem') }}
+                      <select v-model="choice.reward_item_id">
+                        <option value="">{{ uiText('noValue') }}</option>
+                        <option v-for="item in adminItems" :key="item.id" :value="item.id">{{ item.name }}</option>
+                      </select>
+                    </label>
+                  </div>
+                  <label>{{ uiText('rewardChance') }}
+                    <input v-model="choice.reward_chance" type="number" min="0" max="1" step="0.01" />
+                  </label>
+                  <label>{{ uiText('endingTitle') }}<input v-model="choice.ending_title" /></label>
+                  <label>{{ uiText('endingText') }}<textarea v-model="choice.ending_text" rows="2" /></label>
+                </fieldset>
+                <button type="submit" :disabled="busy">{{ busy ? uiText('save') : uiText('saveScenario') }}</button>
+              </form>
+
+              <section class="admin-list item-admin">
+                <h3>{{ uiText('items') }}</h3>
+                <article v-for="item in adminItems" :key="item.id" class="admin-entry">
+                  <div><strong>{{ item.name }}</strong><p>{{ item.description }}</p></div>
+                  <div class="admin-entry-actions">
+                    <button type="button" @click="editItem(item)">{{ uiText('edit') }}</button>
+                    <button type="button" @click="deleteItem(item)">{{ uiText('delete') }}</button>
+                  </div>
+                </article>
+                <form class="item-editor" @submit.prevent="saveItem">
+                  <h3>{{ editingItemId ? uiText('editItem') : uiText('newItem') }}</h3>
+                  <label>{{ uiText('itemName') }}<input v-model="itemDraft.name" required maxlength="255" /></label>
+                  <label>{{ uiText('description') }}<textarea v-model="itemDraft.description" required rows="3" /></label>
+                  <div class="admin-entry-actions">
+                    <button type="submit" :disabled="busy">{{ busy ? uiText('save') : uiText('saveItem') }}</button>
+                    <button v-if="editingItemId" type="button" @click="editingItemId = null; itemDraft = { name: '', description: '' }">{{ uiText('cancel') }}</button>
+                  </div>
+                </form>
+              </section>
             </div>
           </div>
         </section>
 
-        <section v-else-if="currentScreen === 'game'" :class="['game-view', `zone-${currentScene.risk}`]">
+        <section v-else-if="currentScreen === 'game'" :class="['game-view', `zone-${currentScene.risk_zone}`]">
           <div class="story-card">
-            <p class="scene-indicator">{{ currentScene.title }}</p>
-            <p class="story-text">{{ currentScene.text }}</p>
+            <p class="scene-indicator">{{ translateStoryText(currentScene.title) }}</p>
+            <p class="story-text">{{ translateStoryText(currentScene.description) }}</p>
 
             <div class="choice-list">
               <button
                 v-for="(choice, index) in currentScene.choices"
                 :key="`${choice.label}-${index}`"
-                :class="['choice-button', { locked: choice.requiredItem && !inventory.includes(choice.requiredItem) }]"
-                :disabled="choice.requiredItem && !inventory.includes(choice.requiredItem)"
-                :title="choice.requiredItem && !inventory.includes(choice.requiredItem) ? `Nepieciešams: ${choice.requiredItem}` : ''"
+                :class="['choice-button', { locked: choice.required_item && !inventory.some((item) => item.id === choice.required_item.id) }]"
+                :disabled="choice.required_item && !inventory.some((item) => item.id === choice.required_item.id)"
+                :title="choice.required_item && !inventory.some((item) => item.id === choice.required_item.id) ? `${uiText('required')} ${translateStoryText(choice.required_item.name)}` : ''"
                 @click="chooseStoryOption(choice)"
               >
-                {{ choice.label }}
-                <span v-if="choice.requiredItem && !inventory.includes(choice.requiredItem)" class="choice-requirement">
-                  Nepieciešams: {{ choice.requiredItem }}
+                {{ translateStoryText(choice.label) }}
+                <span v-if="choice.required_item && !inventory.some((item) => item.id === choice.required_item.id)" class="choice-requirement">
+                  {{ uiText('required') }} {{ translateStoryText(choice.required_item.name) }}
                 </span>
               </button>
             </div>
 
+            <p v-if="saveError" class="api-error" role="alert">
+              {{ saveError }}
+              <button type="button" @click="saveCurrentSession">{{ uiText('retrySave') }}</button>
+            </p>
             <div class="game-controls">
-              <button class="game-control-button" @click="toggleInventory">INVENTORY</button>
-              <button class="game-control-button" @click="goBack">QUIT</button>
+              <button class="game-control-button" @click="toggleInventory">{{ uiText('inventory') }}</button>
+              <button class="game-control-button" @click="quitGame">{{ uiText('exit') }}</button>
             </div>
           </div>
         </section>
@@ -458,8 +1314,8 @@ onUnmounted(stopGameTimer)
         <section v-else-if="currentScreen === 'inventory'" class="inventory-view">
           <div class="inventory-screen">
             <div class="inventory-header">
-              <h2 class="inventory-title">INVENTORY</h2>
-              <button class="inventory-return" @click="toggleInventory">BACK TO GAME</button>
+              <h2 class="inventory-title">{{ uiText('inventory') }}</h2>
+              <button class="inventory-return" @click="toggleInventory">{{ uiText('backToGame') }}</button>
             </div>
             <div class="inventory-content">
               <div class="inventory-slots" aria-label="Collected items">
@@ -468,14 +1324,16 @@ onUnmounted(stopGameTimer)
                   :key="index"
                   :class="['inventory-slot', { selected: selectedInventoryItem === item && item }]"
                   :disabled="!item"
-                  :aria-label="item ?? 'Empty inventory slot'"
+                  :aria-label="item?.name ?? 'Empty inventory slot'"
                   @click="selectedInventoryItem = item"
                 >
-                  {{ item ? 'ITEM' : '' }}
+                  {{ item ? uiText('item') : '' }}
                 </button>
               </div>
               <div class="inventory-details">
-                <div class="inventory-item-preview">{{ selectedInventoryItem ?? 'ITEM' }}</div>
+                <div class="inventory-item-preview">
+                  {{ selectedInventoryItem ? translateStoryText(selectedInventoryItem.name) : uiText('item') }}
+                </div>
                 <p class="inventory-description">{{ selectedItemDescription }}</p>
               </div>
             </div>
@@ -484,27 +1342,29 @@ onUnmounted(stopGameTimer)
 
         <section v-else-if="currentScreen === 'aftermath'" class="aftermath-view">
           <div class="aftermath-panel" role="dialog" aria-modal="true" aria-label="Choice aftermath">
-            <p>{{ aftermathText }}</p>
-            <button class="aftermath-next" @click="continueAftermath">NEXT</button>
+            <p>{{ aftermathDisplay }}</p>
+            <p v-if="saveError" class="api-error" role="alert">{{ saveError }}</p>
+            <button v-if="saveError" class="aftermath-next" @click="saveCurrentSession">{{ uiText('retrySave') }}</button>
+            <button v-else class="aftermath-next" @click="continueAftermath">{{ uiText('next') }}</button>
           </div>
         </section>
 
         <section v-else-if="currentScreen === 'end'" class="panel-view end-view">
           <div :class="['end-screen', ending?.kind === 'dead' ? 'ending-dead' : 'ending-good']">
-            <h2 class="end-title">{{ ending?.title ?? 'GAME END' }}</h2>
-            <p v-if="ending" class="ending-text">{{ ending.text }}</p>
+            <h2 class="end-title">{{ ending ? translateStoryText(ending.title) : 'GAME END' }}</h2>
+            <p v-if="ending" class="ending-text">{{ translateStoryText(ending.text) }}</p>
             <div class="end-items" aria-label="Items collected during the story">
-              <p v-if="inventory.length === 0" class="empty-inventory">NO ITEMS COLLECTED</p>
-              <p v-for="item in inventory" :key="item" class="end-item">{{ item }}</p>
+              <p v-if="inventory.length === 0" class="empty-inventory">{{ uiText('emptyInventory') }}</p>
+              <p v-for="item in inventory" :key="item.id" class="end-item">{{ translateStoryText(item.name) }}</p>
             </div>
             <div class="playtime-section">
-              <h3>PLAYTIME</h3>
+              <h3>{{ uiText('playtime') }}</h3>
               <div class="playtime-row">
-                <span>TOTAL PLAYED:</span>
+                <span>{{ uiText('totalPlayed') }}</span>
                 <time>{{ formattedPlaytime }}</time>
               </div>
               </div>
-              <button class="end-button" @click="goBack">END</button>
+              <button class="end-button" @click="goBack">{{ uiText('end') }}</button>
           </div>
         </section>
       </main>

@@ -757,11 +757,15 @@ h2 {
 .inventory-slot {
   width: min(100%, 92px);
   aspect-ratio: 1;
+  padding: 4px;
   background: #c7c7c7;
   border: 3px solid #090909;
   color: #111;
-  font-size: 1rem;
+  font-size: 0.75rem;
   font-weight: 700;
+  line-height: 1.1;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .inventory-slot:disabled {
@@ -799,7 +803,12 @@ h2 {
 
 .inventory-item-preview {
   min-height: 190px;
-  font-size: 1.3rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  hyphens: auto;
+  line-height: 1.2;
+  font-size: clamp(0.8rem, 2.2vw, 1.3rem);
 }
 
 .inventory-description {
@@ -1071,5 +1080,184 @@ h2 {
 
   .settings-actions {
     gap: 24px;
+  }
+}
+
+.login-form {
+  gap: 16px;
+}
+
+.auth-submit,
+.admin-heading button,
+.admin-editor > button,
+.item-editor button,
+.admin-entry-actions button {
+  min-height: 42px;
+  padding: 8px 14px;
+  border: 1px solid rgba(216, 181, 124, 0.4);
+  background: #3e3b3c;
+  color: #fff;
+  font-weight: 700;
+}
+
+.auth-submit:disabled,
+.continue-row:disabled,
+.settings-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.api-error {
+  color: #ffc2b7;
+  line-height: 1.5;
+}
+
+.account-status {
+  color: #efce9c;
+  font-size: 0.9rem;
+}
+
+.continue-row {
+  width: 100%;
+  font: inherit;
+  cursor: pointer;
+  text-align: center;
+}
+
+.continue-empty {
+  padding: 30px 18px;
+  color: #d7c9b6;
+  text-align: center;
+}
+
+.admin-view {
+  align-items: start;
+  padding-block: 24px;
+}
+
+.admin-card {
+  width: 100%;
+  max-width: 100%;
+  max-height: 78vh;
+  overflow: auto;
+  padding: 28px;
+}
+
+.admin-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-heading h2,
+.admin-heading h3,
+.admin-list h3,
+.admin-editor h3,
+.item-editor h3 {
+  margin: 4px 0 14px;
+}
+
+.admin-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.75fr) minmax(360px, 1.4fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.admin-list,
+.admin-editor,
+.item-editor {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-entry {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(216, 181, 124, 0.2);
+}
+
+.admin-entry p {
+  max-height: 5em;
+  margin: 5px 0 0;
+  overflow: auto;
+  color: #d7c9b6;
+  font-size: 0.88rem;
+}
+
+.admin-entry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-editor,
+.item-editor {
+  padding: 18px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(216, 181, 124, 0.2);
+}
+
+.admin-editor label,
+.item-editor label {
+  display: grid;
+  gap: 5px;
+  color: #efce9c;
+  font-size: 0.9rem;
+}
+
+.admin-editor input,
+.admin-editor textarea,
+.admin-editor select,
+.item-editor input,
+.item-editor textarea {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid rgba(216, 181, 124, 0.35);
+  border-radius: 4px;
+  background: #211b20;
+  color: #fff;
+}
+
+.admin-inline-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.choice-editor {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid rgba(216, 181, 124, 0.3);
+}
+
+.choice-editor legend {
+  padding-inline: 6px;
+  color: #efce9c;
+  font-weight: 700;
+}
+
+.item-admin {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 700px) {
+  .admin-card {
+    max-height: none;
+    padding: 18px;
+  }
+
+  .admin-layout,
+  .admin-inline-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-view {
+    padding: 12px 0;
   }
 }
