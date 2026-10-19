@@ -162,11 +162,60 @@ h2 {
   height: 34px;
   display: grid;
   place-items: center;
+  padding: 0;
+  border: 0;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.08);
   color: #f3efe8;
   font-weight: 700;
   font-size: 1.15rem;
+  cursor: pointer;
+}
+
+.profile-menu {
+  position: absolute;
+  z-index: 5;
+  top: 10px;
+  right: 14px;
+}
+
+.profile-menu .menu-mode {
+  position: static;
+}
+
+.profile-menu-options {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  display: grid;
+  gap: 6px;
+  width: max-content;
+  min-width: 170px;
+  padding: 10px;
+  background: #211b20;
+  border: 1px solid rgba(216, 181, 124, 0.4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.profile-menu-options button {
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f3efe8;
+  text-align: left;
+  cursor: pointer;
+}
+
+.profile-menu-options button:hover,
+.profile-menu-options button:focus-visible {
+  background: rgba(216, 181, 124, 0.2);
+}
+
+.profile-menu-name {
+  padding: 4px 8px 8px;
+  color: #efce9c;
+  overflow-wrap: anywhere;
 }
 
 .menu-layout {
@@ -1112,6 +1161,19 @@ h2 {
   line-height: 1.5;
 }
 
+.admin-notice {
+  margin: 12px 0;
+  color: #b9e6b5;
+  line-height: 1.5;
+}
+
+.admin-help {
+  margin: 0;
+  color: #d7c9b6;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
 .account-status {
   color: #efce9c;
   font-size: 0.9rem;
@@ -1127,6 +1189,12 @@ h2 {
 .continue-empty {
   padding: 30px 18px;
   color: #d7c9b6;
+  text-align: center;
+}
+
+.continue-limit {
+  color: #d7c9b6;
+  font-size: 0.85rem;
   text-align: center;
 }
 
@@ -1186,6 +1254,21 @@ h2 {
   overflow: auto;
   color: #d7c9b6;
   font-size: 0.88rem;
+}
+
+.scenario-reachability {
+  display: inline-block;
+  margin-left: 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.scenario-reachability.is-reachable {
+  color: #b9e6b5;
+}
+
+.scenario-reachability.is-unreachable {
+  color: #f2c879;
 }
 
 .admin-entry-actions {

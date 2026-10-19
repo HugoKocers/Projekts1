@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\GameSession;
 use App\Models\Item;
 use App\Models\Scenario;
+use App\Models\ScenarioChoice;
 use App\Models\User;
 use Database\Seeders\GameAdminSeeder;
 use Database\Seeders\StorySeeder;
@@ -61,6 +62,35 @@ class GameApiTest extends TestCase
             ->assertJsonPath('sessions.0.inventory.0', $item->id);
 
         $this->assertSame($session->id, $session->fresh()->id);
+    }
+
+    public function test_continue_keeps_only_the_three_most_recent_saves(): void
+    {
+        $user = User::factory()->create();
+        $scenario = Scenario::create([
+            'title' => 'Tunnel',
+            'description' => 'A dark tunnel.',
+            'risk_zone' => 'danger',
+            'sort_order' => 1,
+        ]);
+        $sessionIds = [];
+
+        for ($index = 0; $index < 4; $index++) {
+            $sessionIds[] = $this->actingAs($user)->postJson('/game-api/sessions', [
+                'current_scenario_id' => $scenario->id,
+                'inventory' => [],
+                'elapsed_seconds' => $index,
+                'is_completed' => false,
+            ])->assertCreated()->json('session.id');
+        }
+
+        $this->getJson('/game-api/sessions')
+            ->assertOk()
+            ->assertJsonCount(3, 'sessions');
+
+        $this->assertDatabaseMissing('game_sessions', ['id' => $sessionIds[0]]);
+        $this->assertDatabaseHas('game_sessions', ['id' => $sessionIds[3]]);
+        $this->assertDatabaseCount('game_sessions', 3);
     }
 
     public function test_bootstrap_exposes_seeded_game_content_and_csrf_token(): void
@@ -166,6 +196,167 @@ class GameApiTest extends TestCase
             'sort_order' => 2,
             'choices' => $choices,
         ])->assertOk()->assertJsonPath('scenario.title', 'Escape route');
+    }
+
+    public function test_admin_can_delete_a_scenario_while_preserving_incoming_endings(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $scenario = Scenario::create([
+            'title' => 'Temporary replacement',
+            'description' => 'A scenario that should be removed.',
+            'risk_zone' => 'danger',
+            'sort_order' => 2,
+        ]);
+        $source = Scenario::create([
+            'title' => 'Final scene',
+            'description' => 'The normal ending scene.',
+            'risk_zone' => 'safe',
+            'sort_order' => 1,
+        ]);
+        $choice = ScenarioChoice::create([
+            'scenario_id' => $source->id,
+            'label' => 'Keep the original ending',
+            'aftermath' => 'The story reaches its ending.',
+            'next_scenario_id' => $scenario->id,
+            'ending_kind' => 'good',
+            'ending_title' => 'A good ending',
+            'ending_text' => 'The original ending is preserved.',
+            'sort_order' => 1,
+        ]);
+        $completedSession = GameSession::create([
+            'user_id' => $admin->id,
+            'current_scenario_id' => $scenario->id,
+            'inventory' => [],
+            'elapsed_seconds' => 10,
+            'is_completed' => true,
+        ]);
+
+        $this->actingAs($admin)->deleteJson("/game-api/admin/scenarios/{$scenario->id}")
+            ->assertOk();
+
+        $this->assertDatabaseMissing('scenarios', ['id' => $scenario->id]);
+        $this->assertDatabaseMissing('game_sessions', ['id' => $completedSession->id]);
+        $this->assertDatabaseHas('scenario_choices', [
+            'id' => $choice->id,
+            'next_scenario_id' => null,
+            'ending_kind' => 'good',
+            'ending_title' => 'A good ending',
+            'ending_text' => 'The original ending is preserved.',
+        ]);
+    }
+
+    public function test_admin_cannot_delete_a_scenario_used_by_an_unfinished_save(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $scenario = Scenario::create([
+            'title' => 'In progress',
+            'description' => 'A saved scene.',
+            'risk_zone' => 'danger',
+            'sort_order' => 1,
+        ]);
+        $session = GameSession::create([
+            'user_id' => $admin->id,
+            'current_scenario_id' => $scenario->id,
+            'inventory' => [],
+            'elapsed_seconds' => 10,
+            'is_completed' => false,
+        ]);
+
+        $this->actingAs($admin)->deleteJson("/game-api/admin/scenarios/{$scenario->id}")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('scenario');
+
+        $this->assertDatabaseHas('scenarios', ['id' => $scenario->id]);
+        $this->assertDatabaseHas('game_sessions', ['id' => $session->id]);
+    }
+
+    public function test_admin_cannot_delete_a_scenario_used_by_a_choice_without_an_ending(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $scenario = Scenario::create([
+            'title' => 'Next scene',
+            'description' => 'A linked scene.',
+            'risk_zone' => 'danger',
+            'sort_order' => 2,
+        ]);
+        $source = Scenario::create([
+            'title' => 'Source scene',
+            'description' => 'A scene with a route.',
+            'risk_zone' => 'safe',
+            'sort_order' => 1,
+        ]);
+        $choice = ScenarioChoice::create([
+            'scenario_id' => $source->id,
+            'label' => 'Continue',
+            'aftermath' => 'The story continues.',
+            'next_scenario_id' => $scenario->id,
+            'sort_order' => 1,
+        ]);
+
+        $this->actingAs($admin)->deleteJson("/game-api/admin/scenarios/{$scenario->id}")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('scenario');
+
+        $this->assertDatabaseHas('scenarios', ['id' => $scenario->id]);
+        $this->assertDatabaseHas('scenario_choices', [
+            'id' => $choice->id,
+            'next_scenario_id' => $scenario->id,
+        ]);
+    }
+
+    public function test_admin_can_create_random_replacement_scenarios_with_a_chance_pool_capped_at_one(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $reward = Item::create(['name' => 'Small reward', 'description' => 'A chance-based reward.']);
+        $normalScenario = Scenario::create([
+            'title' => 'Normal tunnel',
+            'description' => 'The regular event.',
+            'risk_zone' => 'caution',
+            'sort_order' => 1,
+        ]);
+        $choices = [
+            ['label' => 'First', 'aftermath' => 'It ends.', 'ending_kind' => 'good', 'ending_title' => 'End', 'ending_text' => 'Safe.'],
+            ['label' => 'Second', 'aftermath' => 'It ends.', 'ending_kind' => 'dead', 'ending_title' => 'End', 'ending_text' => 'Dead.'],
+            ['label' => 'Third', 'aftermath' => 'It ends.', 'ending_kind' => 'good', 'ending_title' => 'End', 'ending_text' => 'Safe.'],
+        ];
+
+        $payload = [
+            'title' => 'Unexpected tunnel',
+            'description' => 'A random event replaces the normal tunnel.',
+            'risk_zone' => 'danger',
+            'sort_order' => 2,
+            'replacement_for_scenario_id' => $normalScenario->id,
+            'spawn_chance' => 0.27,
+            'choices' => $choices,
+        ];
+        $payload['choices'][0]['reward_item_id'] = $reward->id;
+        $payload['choices'][0]['reward_chance'] = 0.27;
+
+        $this->actingAs($admin)->postJson('/game-api/admin/scenarios', $payload)
+            ->assertCreated()
+            ->assertJsonPath('scenario.replacement_for_scenario_id', $normalScenario->id)
+            ->assertJsonPath('scenario.spawn_chance', 0.27)
+            ->assertJsonPath('scenario.choices.0.reward_chance', 0.27);
+
+        $payload['title'] = 'Over-precision replacement';
+        $payload['spawn_chance'] = 0.275;
+        $this->postJson('/game-api/admin/scenarios', $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('spawn_chance');
+
+        $payload['title'] = 'Over-precision reward';
+        $payload['spawn_chance'] = 0.27;
+        $payload['choices'][0]['reward_chance'] = 0.275;
+        $this->postJson('/game-api/admin/scenarios', $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('choices.0.reward_chance');
+
+        $payload['title'] = 'Another replacement';
+        $payload['choices'][0]['reward_chance'] = 0.27;
+        $payload['spawn_chance'] = 0.8;
+        $this->postJson('/game-api/admin/scenarios', $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('spawn_chance');
     }
 
     public function test_configured_admin_is_seeded_only_from_private_configuration(): void

@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 const currentScreen = ref('menu')
+const profileMenuOpen = ref(false)
 const currentSceneIndex = ref(0)
 const scenarios = ref([])
 const items = ref([])
@@ -10,6 +11,7 @@ const currentScenarioId = ref(null)
 const gameSessionId = ref(null)
 const savedSessionsFromApi = ref([])
 const apiError = ref('')
+const adminNotice = ref('')
 const saveError = ref('')
 const busy = ref(false)
 const csrfToken = ref('')
@@ -40,8 +42,45 @@ const menuButtons = computed(() => [
   { id: 'game', label: uiText('start') },
   { id: 'continue', label: uiText('continue') },
   { id: 'settings', label: uiText('exit'), accent: 'danger' },
-  ...(currentUser.value?.is_admin ? [{ id: 'admin', label: 'ADMIN PANEL' }] : []),
 ])
+const normalScenarios = computed(() =>
+  scenarios.value
+    .filter((scenario) => scenario.replacement_for_scenario_id === null || scenario.replacement_for_scenario_id === undefined)
+    .sort((left, right) => left.sort_order - right.sort_order || left.id - right.id),
+)
+const reachableScenarioIds = computed(() => {
+  const startScenarioId = normalScenarios.value[0]?.id
+  if (startScenarioId === undefined) return new Set()
+
+  const reachable = new Set([startScenarioId])
+  const pending = [startScenarioId]
+  while (pending.length) {
+    const currentScenarioId = pending.shift()
+    const scenario = adminScenarios.value.find((entry) => entry.id === currentScenarioId)
+    for (const choice of scenario?.choices ?? []) {
+      const nextScenarioId = choice.next_scenario_id
+      if (nextScenarioId !== null && nextScenarioId !== undefined && !reachable.has(nextScenarioId)) {
+        reachable.add(nextScenarioId)
+        pending.push(nextScenarioId)
+      }
+    }
+    for (const replacement of adminScenarios.value) {
+      if (
+        replacement.replacement_for_scenario_id === currentScenarioId
+        && replacement.spawn_chance > 0
+        && !reachable.has(replacement.id)
+      ) {
+        reachable.add(replacement.id)
+        pending.push(replacement.id)
+      }
+    }
+  }
+  return reachable
+})
+const userInitial = computed(() => {
+  const displayName = currentUser.value?.name || currentUser.value?.username
+  return displayName ? Array.from(displayName.trim())[0]?.toLocaleUpperCase() || 'M' : 'M'
+})
 
 const itemDescriptions = {
   'Ticība pasakām': 'Stūrgalvīga ticība, ka siena varētu atvērties, ja tajā ieskriesies. Varbūt ne pārāk noderīga, bet noteikti neaizmirstama.',
@@ -49,6 +88,13 @@ const itemDescriptions = {
   'Auduma strēmele': 'No veca pārklāja noplēsta auduma strēmele. Tā varētu noderēt brūces apsiešanai.',
   'Mājas atslēga': 'Atslēga, kuru domāji pazaudējis. Tā ļauj tikt mājās, nelienot pa logu.',
   'Veiksmes monēta': 'Putekļos atrasta monēta. Tā izskatās pēc laba veiksmes talismana.',
+}
+
+function setReplacementTarget(draft, scenarioId) {
+  draft.replacement_for_scenario_id = scenarioId
+  if (!scenarioId) draft.spawn_chance = ''
+  else if (draft.spawn_chance === '') draft.spawn_chance = '0.25'
+  clearAdminFeedback()
 }
 
 const uiTranslations = {
@@ -76,6 +122,7 @@ const uiTranslations = {
     return: 'RETURN',
     logOut: 'LOG OUT',
     noSaves: 'NO SAVED GAMES AVAILABLE.',
+    saveLimit: 'Only the three most recently updated saves are kept; older saves are removed automatically.',
     inventory: 'INVENTORY',
     backToGame: 'BACK TO GAME',
     emptyInventory: 'NO ITEMS COLLECTED',
@@ -99,7 +146,21 @@ const uiTranslations = {
     safe: 'Safe',
     caution: 'Caution',
     danger: 'Danger',
-    order: 'Order',
+    replacesScenario: 'Replace normal scenario (optional)',
+    standardScenario: 'Standard story scenario',
+    spawnChance: 'Spawn chance (0–1)',
+    spawnChanceHelp: 'The chance this scene replaces the selected normal scene. Replacement chances for the same scene must total no more than 1.',
+    replacementDetailsRequired: 'Select a normal scenario and enter a spawn chance for a random replacement.',
+    spawnChanceInvalid: 'Spawn chance must be between 0 and 1.',
+    spawnChancePrecision: 'Spawn chance must use increments of 0.01 (up to 2 decimal places).',
+    randomReplacement: 'Random replacement',
+    replaces: 'Replaces:',
+    scenarioSaved: 'Scenario saved.',
+    scenarioDeleted: 'Scenario deleted.',
+    deleteScenarioConfirm: 'Delete this scenario? Any completed saves at this scene will also be removed. Existing endings in incoming choices will be kept.',
+    itemSaved: 'Item saved.',
+    itemDeleted: 'Item deleted.',
+    order: 'Normal scenario order (lower starts earlier)',
     choice: 'Choice',
     choiceText: 'Choice text',
     consequence: 'Consequence',
@@ -111,8 +172,20 @@ const uiTranslations = {
     requiredItem: 'Required item',
     rewardItem: 'Reward item',
     rewardChance: 'Reward chance (0–1)',
+    rewardChanceHelp: 'Probability of receiving this item: 0.25 means 25%. Use increments of 0.01. Leave both reward fields empty for no reward.',
+    choiceRule: 'All three choices need text and a consequence. For each, select exactly one next scenario or ending. Random replacement scenes use the target and chance settings above; they do not need a direct link.',
     endingTitle: 'Ending title',
     endingText: 'Ending text',
+    reachable: 'Playable from start',
+    unreachable: 'Not linked from start',
+    scenarioDetailsRequired: 'Enter a scenario title and description.',
+    scenarioOrderInvalid: 'Enter a non-negative whole number for the scenario order.',
+    choiceDetailsRequired: 'Choice : fill in both the choice text and consequence.',
+    choiceRouteRequired: 'Choice : select exactly one next scenario or ending.',
+    choiceEndingRequired: 'Choice : add both an ending title and ending text.',
+    choiceRewardRequired: 'Choice : select both a reward item and chance, or leave both empty.',
+    choiceRewardChanceInvalid: 'Choice : reward chance must be between 0 and 1.',
+    choiceRewardPrecision: 'Choice : reward chance must use increments of 0.01 (up to 2 decimal places).',
     save: 'SAVE',
     saveScenario: 'SAVE SCENARIO',
     saveItem: 'SAVE ITEM',
@@ -152,6 +225,7 @@ const uiTranslations = {
     return: 'ATGRIEZTIES',
     logOut: 'ATSLĒGTIES',
     noSaves: 'NAV SAGLABĀTU SPĒĻU.',
+    saveLimit: 'Tiek paturētas tikai trīs nesenāk atjauninātās spēles; vecākās tiek automātiski dzēstas.',
     inventory: 'INVENTĀRS',
     backToGame: 'ATGRIEZTIES SPĒLĒ',
     emptyInventory: 'NAV ATRASTU PRIEKŠMETU',
@@ -175,7 +249,21 @@ const uiTranslations = {
     safe: 'Droša',
     caution: 'Uzmanību',
     danger: 'Bīstama',
-    order: 'Kārtība',
+    replacesScenario: 'Aizstāt parasto scenāriju (neobligāti)',
+    standardScenario: 'Parasts stāsta scenārijs',
+    spawnChance: 'Parādīšanās iespēja (0–1)',
+    spawnChanceHelp: 'Iespēja, ka šis scenārijs aizstās izvēlēto parasto scenāriju. Vairāku aizvietotāju kopējā iespēja nedrīkst pārsniegt 1.',
+    replacementDetailsRequired: 'Nejaušam aizvietotājam izvēlies parasto scenāriju un norādi parādīšanās iespēju.',
+    spawnChanceInvalid: 'Parādīšanās iespējai jābūt no 0 līdz 1.',
+    spawnChancePrecision: 'Parādīšanās iespēja jānorāda ar soli 0,01 (ne vairāk kā 2 zīmes aiz komata).',
+    randomReplacement: 'Nejaušs aizvietotājs',
+    replaces: 'Aizstāj:',
+    scenarioSaved: 'Scenārijs saglabāts.',
+    scenarioDeleted: 'Scenārijs izdzēsts.',
+    deleteScenarioConfirm: 'Dzēst šo scenāriju? Tiks dzēstas arī pabeigtās spēles šajā scenārijā. Esošās beigas ienākošajās izvēlēs tiks saglabātas.',
+    itemSaved: 'Priekšmets saglabāts.',
+    itemDeleted: 'Priekšmets izdzēsts.',
+    order: 'Parastā scenārija kārtība (mazākais sākas agrāk)',
     choice: 'Izvēle',
     choiceText: 'Izvēles teksts',
     consequence: 'Sekas',
@@ -187,8 +275,20 @@ const uiTranslations = {
     requiredItem: 'Nepieciešamais priekšmets',
     rewardItem: 'Atlīdzības priekšmets',
     rewardChance: 'Atlīdzības iespēja (0–1)',
+    rewardChanceHelp: 'Varbūtība saņemt šo priekšmetu: 0.25 nozīmē 25%. Izmanto soli 0,01. Ja atlīdzības nav, atstāj abus laukus tukšus.',
+    choiceRule: 'Visām trim izvēlēm jābūt tekstam un sekām. Katrai izvēlei norādi tieši vienu — nākamo scenāriju vai beigas. Nejaušie aizvietotāji izmanto augstāk norādīto mērķi un iespēju; tie nav tieši jāsasaista ar izvēli.',
     endingTitle: 'Beigu virsraksts',
     endingText: 'Beigu teksts',
+    reachable: 'Spēlējams no sākuma',
+    unreachable: 'Nav sasniedzams no sākuma',
+    scenarioDetailsRequired: 'Ievadi scenārija nosaukumu un aprakstu.',
+    scenarioOrderInvalid: 'Ievadi kārtas skaitli kā veselu, nenegatīvu skaitli.',
+    choiceDetailsRequired: 'Izvēle : ievadi gan izvēles tekstu, gan sekas.',
+    choiceRouteRequired: 'Izvēle : norādi tieši vienu — nākamo scenāriju vai beigas.',
+    choiceEndingRequired: 'Izvēle : ievadi gan beigu virsrakstu, gan beigu tekstu.',
+    choiceRewardRequired: 'Izvēle : norādi gan atlīdzības priekšmetu, gan iespēju vai atstāj abus tukšus.',
+    choiceRewardChanceInvalid: 'Izvēle : atlīdzības iespējai jābūt no 0 līdz 1.',
+    choiceRewardPrecision: 'Izvēle : atlīdzības iespēja jānorāda ar soli 0,01 (ne vairāk kā 2 zīmes aiz komata).',
     save: 'SAGLABĀT',
     saveScenario: 'SAGLABĀT SCENĀRIJU',
     saveItem: 'SAGLABĀT PRIEKŠMETU',
@@ -444,9 +544,32 @@ const storyScenes = [
 
 const currentScene = computed(() =>
   scenarios.value.find((scenario) => scenario.id === currentScenarioId.value)
-  ?? scenarios.value[0]
+  ?? normalScenarios.value[0]
   ?? { title: '', risk_zone: 'caution', description: '', choices: [] },
 )
+
+function chooseScenarioForPlay(baseScenarioId) {
+  const replacements = scenarios.value
+    .filter((scenario) => scenario.replacement_for_scenario_id === baseScenarioId && scenario.spawn_chance > 0)
+    .sort((left, right) => left.id - right.id)
+  const roll = Math.random()
+  let cumulativeChance = 0
+
+  for (const replacement of replacements) {
+    cumulativeChance += replacement.spawn_chance
+    if (roll < cumulativeChance) return replacement
+  }
+
+  return scenarios.value.find((scenario) => scenario.id === baseScenarioId)
+}
+
+function hasValidChancePrecision(value) {
+  return /^(?:\d+(?:\.\d{0,2})?|\.\d{1,2})$/.test(String(value))
+}
+
+function formatChancePercent(chance) {
+  return `${Number(chance * 100).toFixed(8).replace(/\.?0+$/, '')}%`
+}
 const inventorySlots = computed(() =>
   Array.from({ length: Math.max(6, inventory.value.length) }, (_, index) => inventory.value[index] ?? null),
 )
@@ -673,7 +796,9 @@ async function saveCurrentSession(completed = false) {
 }
 
 async function openScreen(screen) {
+  profileMenuOpen.value = false
   apiError.value = ''
+  adminNotice.value = ''
   if (screen === 'login' && currentUser.value) {
     currentScreen.value = 'settings'
     return
@@ -716,20 +841,31 @@ async function openScreen(screen) {
   currentScreen.value = screen
 }
 
+function toggleProfileMenu() {
+  profileMenuOpen.value = !profileMenuOpen.value
+}
+
 async function startNewGame() {
-  if (!scenarios.value.length) {
+  const startingScenario = normalScenarios.value[0]
+  if (!startingScenario) {
     apiError.value = uiText('noScenarios')
     return
   }
 
   busy.value = true
   apiError.value = ''
-  const startingItem = scenarios.value[0].choices.find((choice) => choice.required_item)?.required_item ?? null
+  const scenarioToPlay = chooseScenarioForPlay(startingScenario.id)
+  if (!scenarioToPlay) {
+    busy.value = false
+    apiError.value = uiText('noScenarios')
+    return
+  }
+  const startingItem = scenarioToPlay.choices.find((choice) => choice.required_item)?.required_item ?? null
   try {
     const payload = await apiRequest('/sessions', {
       method: 'POST',
       body: JSON.stringify({
-        current_scenario_id: scenarios.value[0].id,
+        current_scenario_id: scenarioToPlay.id,
         inventory: startingItem ? [startingItem.id] : [],
         elapsed_seconds: 0,
         is_completed: false,
@@ -873,10 +1009,17 @@ async function continueAftermath() {
     return
   }
 
-  const currentIndex = scenarios.value.findIndex((scenario) => scenario.id === currentScenarioId.value)
-  currentScenarioId.value = pendingNextScene.value
-    ?? scenarios.value[currentIndex + 1]?.id
+  const currentBaseScenarioId = currentScene.value.replacement_for_scenario_id ?? currentScenarioId.value
+  const currentIndex = normalScenarios.value.findIndex((scenario) => scenario.id === currentBaseScenarioId)
+  const nextNormalScenarioId = pendingNextScene.value
+    ?? normalScenarios.value[currentIndex + 1]?.id
     ?? currentScenarioId.value
+  const scenarioToPlay = chooseScenarioForPlay(nextNormalScenarioId)
+  if (!scenarioToPlay) {
+    apiError.value = uiText('noScenarios')
+    return
+  }
+  currentScenarioId.value = scenarioToPlay.id
   pendingNextScene.value = null
   if (!await saveCurrentSession()) return
   currentScreen.value = 'game'
@@ -889,12 +1032,16 @@ async function quitGame() {
 }
 
 function newScenarioDraft() {
+  adminNotice.value = ''
   editingScenarioId.value = null
+  const replacementTarget = normalScenarios.value[0]
   scenarioDraft.value = {
     title: '',
     description: '',
     risk_zone: 'caution',
-    sort_order: adminScenarios.value.length + 1,
+    sort_order: normalScenarios.value.length + 1,
+    replacement_for_scenario_id: replacementTarget?.id ?? '',
+    spawn_chance: replacementTarget ? '0.25' : '',
     choices: Array.from({ length: 3 }, () => ({
       label: '',
       aftermath: '',
@@ -909,13 +1056,33 @@ function newScenarioDraft() {
   }
 }
 
+function clearAdminFeedback() {
+  apiError.value = ''
+  adminNotice.value = ''
+}
+
+function setChoiceNextScenario(choice, scenarioId) {
+  choice.next_scenario_id = scenarioId
+  if (scenarioId) choice.ending_kind = ''
+  clearAdminFeedback()
+}
+
+function setChoiceEnding(choice, endingKind) {
+  choice.ending_kind = endingKind
+  if (endingKind) choice.next_scenario_id = ''
+  clearAdminFeedback()
+}
+
 function editScenario(scenario) {
+  adminNotice.value = ''
   editingScenarioId.value = scenario.id
   scenarioDraft.value = {
     title: scenario.title,
     description: scenario.description,
     risk_zone: scenario.risk_zone,
     sort_order: scenario.sort_order,
+    replacement_for_scenario_id: scenario.replacement_for_scenario_id ?? '',
+    spawn_chance: scenario.spawn_chance ?? '',
     choices: scenario.choices.map((choice) => ({
       label: choice.label,
       aftermath: choice.aftermath,
@@ -923,9 +1090,9 @@ function editScenario(scenario) {
       required_item_id: choice.required_item?.id ?? '',
       reward_item_id: choice.reward_item?.id ?? '',
       reward_chance: choice.reward_chance ?? '',
-      ending_title: choice.ending_title ?? '',
-      ending_text: choice.ending_text ?? '',
-      ending_kind: choice.ending_kind ?? '',
+      ending_title: choice.next_scenario_id ? '' : choice.ending_title ?? '',
+      ending_text: choice.next_scenario_id ? '' : choice.ending_text ?? '',
+      ending_kind: choice.next_scenario_id ? '' : choice.ending_kind ?? '',
     })),
   }
 }
@@ -942,14 +1109,76 @@ async function loadAdminData() {
 }
 
 async function saveScenario() {
-  busy.value = true
   apiError.value = ''
+  adminNotice.value = ''
   const draft = scenarioDraft.value
+  if (!draft.title.trim() || !draft.description.trim()) {
+    apiError.value = uiText('scenarioDetailsRequired')
+    return
+  }
+  if (draft.sort_order === '' || !Number.isInteger(Number(draft.sort_order)) || Number(draft.sort_order) < 0) {
+    apiError.value = uiText('scenarioOrderInvalid')
+    return
+  }
+  const hasReplacementTarget = Boolean(draft.replacement_for_scenario_id)
+  const hasSpawnChance = draft.spawn_chance !== '' && draft.spawn_chance !== null
+  if (hasReplacementTarget !== hasSpawnChance) {
+    apiError.value = uiText('replacementDetailsRequired')
+    return
+  }
+  if (
+    hasSpawnChance
+    && (!Number.isFinite(Number(draft.spawn_chance)) || Number(draft.spawn_chance) < 0 || Number(draft.spawn_chance) > 1)
+  ) {
+    apiError.value = uiText('spawnChanceInvalid')
+    return
+  }
+  if (hasSpawnChance && !hasValidChancePrecision(draft.spawn_chance)) {
+    apiError.value = uiText('spawnChancePrecision')
+    return
+  }
+  for (const [index, choice] of draft.choices.entries()) {
+    const choiceNumber = index + 1
+    if (!choice.label.trim() || !choice.aftermath.trim()) {
+      apiError.value = uiText('choiceDetailsRequired').replace(':', ` ${choiceNumber}:`)
+      return
+    }
+
+    const hasNextScenario = Boolean(choice.next_scenario_id)
+    const hasEnding = Boolean(choice.ending_kind)
+    if (hasNextScenario === hasEnding) {
+      apiError.value = uiText('choiceRouteRequired').replace(':', ` ${choiceNumber}:`)
+      return
+    }
+    if (hasEnding && (!choice.ending_title.trim() || !choice.ending_text.trim())) {
+      apiError.value = uiText('choiceEndingRequired').replace(':', ` ${choiceNumber}:`)
+      return
+    }
+
+    const hasRewardItem = Boolean(choice.reward_item_id)
+    const hasRewardChance = choice.reward_chance !== '' && choice.reward_chance !== null
+    if (hasRewardItem !== hasRewardChance) {
+      apiError.value = uiText('choiceRewardRequired').replace(':', ` ${choiceNumber}:`)
+      return
+    }
+    if (hasRewardChance && (!Number.isFinite(Number(choice.reward_chance)) || Number(choice.reward_chance) < 0 || Number(choice.reward_chance) > 1)) {
+      apiError.value = uiText('choiceRewardChanceInvalid').replace(':', ` ${choiceNumber}:`)
+      return
+    }
+    if (hasRewardChance && !hasValidChancePrecision(choice.reward_chance)) {
+      apiError.value = uiText('choiceRewardPrecision').replace(':', ` ${choiceNumber}:`)
+      return
+    }
+  }
+
+  busy.value = true
   const data = {
     title: draft.title,
     description: draft.description,
     risk_zone: draft.risk_zone,
     sort_order: Number(draft.sort_order),
+    replacement_for_scenario_id: draft.replacement_for_scenario_id ? Number(draft.replacement_for_scenario_id) : null,
+    spawn_chance: draft.spawn_chance === '' ? null : Number(draft.spawn_chance),
     choices: draft.choices.map((choice) => ({
       label: choice.label,
       aftermath: choice.aftermath,
@@ -971,6 +1200,7 @@ async function saveScenario() {
       body: JSON.stringify(data),
     })
     await loadAdminData()
+    adminNotice.value = uiText('scenarioSaved')
     await loadBootstrap()
   } catch (error) {
     apiError.value = error.message
@@ -980,10 +1210,12 @@ async function saveScenario() {
 }
 
 async function deleteScenario(scenario) {
-  if (!window.confirm(`Dzēst scenāriju “${scenario.title}”?`)) return
+  if (!window.confirm(`${uiText('deleteScenarioConfirm')} “${scenario.title}”?`)) return
+  adminNotice.value = ''
   try {
     await apiRequest(`/admin/scenarios/${scenario.id}`, { method: 'DELETE' })
     await loadAdminData()
+    adminNotice.value = uiText('scenarioDeleted')
     await loadBootstrap()
   } catch (error) {
     apiError.value = error.message
@@ -991,6 +1223,7 @@ async function deleteScenario(scenario) {
 }
 
 function editItem(item) {
+  adminNotice.value = ''
   editingItemId.value = item.id
   itemDraft.value = { name: item.name, description: item.description }
 }
@@ -998,6 +1231,7 @@ function editItem(item) {
 async function saveItem() {
   busy.value = true
   apiError.value = ''
+  adminNotice.value = ''
   try {
     const path = editingItemId.value ? `/admin/items/${editingItemId.value}` : '/admin/items'
     await apiRequest(path, {
@@ -1007,6 +1241,7 @@ async function saveItem() {
     editingItemId.value = null
     itemDraft.value = { name: '', description: '' }
     await loadAdminData()
+    adminNotice.value = uiText('itemSaved')
     await loadBootstrap()
   } catch (error) {
     apiError.value = error.message
@@ -1017,9 +1252,11 @@ async function saveItem() {
 
 async function deleteItem(item) {
   if (!window.confirm(`Dzēst priekšmetu “${item.name}”?`)) return
+  adminNotice.value = ''
   try {
     await apiRequest(`/admin/items/${item.id}`, { method: 'DELETE' })
     await loadAdminData()
+    adminNotice.value = uiText('itemDeleted')
     await loadBootstrap()
   } catch (error) {
     apiError.value = error.message
@@ -1050,7 +1287,27 @@ onUnmounted(stopGameTimer)
       <main :class="['screen-body', { 'screen-body-flush': ['login', 'settings', 'inventory'].includes(currentScreen) }]">
         <section v-if="currentScreen === 'menu'" class="menu-view">
           <div class="menu-panel">
-            <div class="menu-mode">M</div>
+            <div class="profile-menu">
+              <button
+                class="menu-mode"
+                type="button"
+                :aria-label="currentUser ? `${currentUser.name} account menu` : 'Account menu'"
+                :aria-expanded="profileMenuOpen"
+                aria-haspopup="true"
+                @click="toggleProfileMenu"
+              >
+                {{ userInitial }}
+              </button>
+              <div v-if="profileMenuOpen" class="profile-menu-options">
+                <span v-if="currentUser" class="profile-menu-name">{{ currentUser.name }}</span>
+                <button type="button" @click="openScreen(currentUser ? 'settings' : 'login')">
+                  {{ currentUser ? uiText('account') : uiText('logIn') }}
+                </button>
+                <button v-if="currentUser?.is_admin" type="button" @click="openScreen('admin')">
+                  {{ uiText('admin') }}
+                </button>
+              </div>
+            </div>
             <div class="menu-layout">
               <div class="menu-left">
                 <div class="game-word">GAME</div>
@@ -1166,6 +1423,7 @@ onUnmounted(stopGameTimer)
 
             <p v-if="apiError" class="api-error" role="alert">{{ apiError }}</p>
             <p v-else-if="!savedSessionsFromApi.length" class="continue-empty">{{ uiText('noSaves') }}</p>
+            <p v-if="savedSessionsFromApi.length" class="continue-limit">{{ uiText('saveLimit') }}</p>
             <button class="return-button" @click="goBack">{{ uiText('return') }}</button>
           </div>
         </section>
@@ -1180,6 +1438,7 @@ onUnmounted(stopGameTimer)
               <button type="button" @click="goBack">{{ uiText('return') }}</button>
             </div>
             <p v-if="apiError" class="api-error" role="alert">{{ apiError }}</p>
+            <p v-if="adminNotice" class="admin-notice" role="status">{{ adminNotice }}</p>
             <div class="admin-layout">
               <section class="admin-list">
                 <div class="admin-heading">
@@ -1189,6 +1448,12 @@ onUnmounted(stopGameTimer)
                 <article v-for="scenario in adminScenarios" :key="scenario.id" class="admin-entry">
                   <div>
                     <strong>{{ scenario.title }}</strong>
+                    <span v-if="scenario.replacement_for_scenario_id" class="scenario-reachability is-unreachable">
+                      {{ uiText('randomReplacement') }} — {{ scenario.replacement_for_scenario?.title ?? adminScenarios.find((entry) => entry.id === scenario.replacement_for_scenario_id)?.title }} ({{ formatChancePercent(scenario.spawn_chance) }})
+                    </span>
+                    <span :class="['scenario-reachability', reachableScenarioIds.has(scenario.id) ? 'is-reachable' : 'is-unreachable']">
+                      {{ reachableScenarioIds.has(scenario.id) ? uiText('reachable') : uiText('unreachable') }}
+                    </span>
                     <p>{{ scenario.description }}</p>
                   </div>
                   <div class="admin-entry-actions">
@@ -1198,11 +1463,23 @@ onUnmounted(stopGameTimer)
                 </article>
               </section>
 
-              <form v-if="scenarioDraft" class="admin-editor" @submit.prevent="saveScenario">
+              <form v-if="scenarioDraft" class="admin-editor" novalidate @submit.prevent="saveScenario" @input="clearAdminFeedback">
                 <h3>{{ editingScenarioId ? uiText('editScenario') : uiText('newScenario') }}</h3>
                 <label>{{ uiText('scenarioName') }}<input v-model="scenarioDraft.title" required maxlength="255" /></label>
                 <label>{{ uiText('description') }}<textarea v-model="scenarioDraft.description" required rows="4" /></label>
+                <p class="admin-help">{{ uiText('choiceRule') }}</p>
                 <div class="admin-inline-fields">
+                  <label>{{ uiText('replacesScenario') }}
+                    <select
+                      :value="scenarioDraft.replacement_for_scenario_id"
+                      @change="setReplacementTarget(scenarioDraft, $event.target.value)"
+                    >
+                      <option value="">{{ uiText('standardScenario') }}</option>
+                      <option v-for="option in normalScenarios" :key="option.id" :value="option.id">
+                        {{ option.title }}
+                      </option>
+                    </select>
+                  </label>
                   <label>{{ uiText('riskZone') }}
                     <select v-model="scenarioDraft.risk_zone">
                       <option value="safe">{{ uiText('safe') }}</option>
@@ -1210,23 +1487,35 @@ onUnmounted(stopGameTimer)
                       <option value="danger">{{ uiText('danger') }}</option>
                     </select>
                   </label>
-                  <label>{{ uiText('order') }}<input v-model.number="scenarioDraft.sort_order" type="number" min="0" required /></label>
+                  <label v-if="!scenarioDraft.replacement_for_scenario_id">
+                    {{ uiText('order') }}<input v-model.number="scenarioDraft.sort_order" type="number" min="0" required />
+                  </label>
                 </div>
+                <label v-if="scenarioDraft.replacement_for_scenario_id">{{ uiText('spawnChance') }}
+                  <input v-model="scenarioDraft.spawn_chance" type="number" min="0" max="1" step="0.01" required />
+                </label>
+                <p v-if="scenarioDraft.replacement_for_scenario_id" class="admin-help">{{ uiText('spawnChanceHelp') }}</p>
                 <fieldset v-for="(choice, index) in scenarioDraft.choices" :key="index" class="choice-editor">
                   <legend>{{ uiText('choice') }} {{ index + 1 }}</legend>
                   <label>{{ uiText('choiceText') }}<input v-model="choice.label" required /></label>
                   <label>{{ uiText('consequence') }}<textarea v-model="choice.aftermath" required rows="2" /></label>
                   <div class="admin-inline-fields">
                     <label>{{ uiText('nextScenario') }}
-                      <select v-model="choice.next_scenario_id">
+                      <select
+                        :value="choice.next_scenario_id"
+                        @change="setChoiceNextScenario(choice, $event.target.value)"
+                      >
                         <option value="">{{ uiText('noValue') }}</option>
-                        <option v-for="option in adminScenarios" :key="option.id" :value="option.id">
+                        <option v-for="option in normalScenarios" :key="option.id" :value="option.id">
                           {{ option.title }}
                         </option>
                       </select>
                     </label>
                     <label>{{ uiText('endingType') }}
-                      <select v-model="choice.ending_kind">
+                      <select
+                        :value="choice.ending_kind"
+                        @change="setChoiceEnding(choice, $event.target.value)"
+                      >
                         <option value="">{{ uiText('noValue') }}</option>
                         <option value="good">{{ uiText('goodEnding') }}</option>
                         <option value="dead">{{ uiText('badEnding') }}</option>
@@ -1250,6 +1539,7 @@ onUnmounted(stopGameTimer)
                   <label>{{ uiText('rewardChance') }}
                     <input v-model="choice.reward_chance" type="number" min="0" max="1" step="0.01" />
                   </label>
+                  <p class="admin-help">{{ uiText('rewardChanceHelp') }}</p>
                   <label>{{ uiText('endingTitle') }}<input v-model="choice.ending_title" /></label>
                   <label>{{ uiText('endingText') }}<textarea v-model="choice.ending_text" rows="2" /></label>
                 </fieldset>

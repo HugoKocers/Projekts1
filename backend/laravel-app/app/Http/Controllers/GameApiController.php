@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
@@ -80,6 +81,7 @@ class GameApiController extends Controller
 
     public function indexSessions(Request $request): JsonResponse
     {
+        $this->pruneSavedGames($request->user());
         $sessions = $request->user()->gameSessions()
             ->where('is_completed', false)
             ->with('currentScenario:id,title,description')
@@ -93,7 +95,13 @@ class GameApiController extends Controller
     public function storeSession(Request $request): JsonResponse
     {
         $data = $this->validatedSession($request);
-        $session = $request->user()->gameSessions()->create($data);
+        $user = $request->user();
+        $session = DB::transaction(function () use ($user, $data) {
+            $session = $user->gameSessions()->create($data);
+            $this->pruneSavedGames($user);
+
+            return $session;
+        });
         $session->load('currentScenario:id,title,description');
 
         return response()->json(['session' => $this->sessionData($session)], 201);
@@ -125,6 +133,19 @@ class GameApiController extends Controller
             'elapsed_seconds' => ['required', 'integer', 'between:0,5999'],
             'is_completed' => ['required', 'boolean'],
         ]);
+    }
+
+    private function pruneSavedGames(User $user): void
+    {
+        $olderSessionIds = $user->gameSessions()
+            ->orderByDesc('updated_at')
+            ->orderByDesc('id')
+            ->pluck('id')
+            ->slice(3);
+
+        if ($olderSessionIds->isNotEmpty()) {
+            $user->gameSessions()->whereIn('id', $olderSessionIds)->delete();
+        }
     }
 
     private function sessionData(GameSession $session): array
