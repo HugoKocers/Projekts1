@@ -1,19 +1,17 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\GameContentController;
 use App\Http\Controllers\GameApiController;
-use Illuminate\Foundation\Application;
+use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
+    $frontendPath = public_path('spa/index.html');
+
+    abort_unless(is_file($frontendPath), 503, 'The game website has not been built yet.');
+
+    return response()->file($frontendPath);
 });
 
 Route::get('/dashboard', function () {

@@ -43,7 +43,9 @@ class GameApiTest extends TestCase
         $user = User::factory()->create();
         $scenario = Scenario::create([
             'title' => 'First tunnel',
+            'title_en' => 'First tunnel',
             'description' => 'The old tunnel shakes in the dark.',
+            'description_en' => 'The old tunnel shakes in the dark.',
             'risk_zone' => 'danger',
             'sort_order' => 1,
         ]);
@@ -57,7 +59,9 @@ class GameApiTest extends TestCase
 
         $this->actingAs($user)->getJson('/game-api/sessions')
             ->assertOk()
+            ->assertJsonPath('sessions.0.scenario_title_en', 'First tunnel')
             ->assertJsonPath('sessions.0.scenario_description', 'The old tunnel shakes in the dark.')
+            ->assertJsonPath('sessions.0.scenario_description_en', 'The old tunnel shakes in the dark.')
             ->assertJsonPath('sessions.0.playtime', '99:59')
             ->assertJsonPath('sessions.0.inventory.0', $item->id);
 
@@ -101,8 +105,8 @@ class GameApiTest extends TestCase
             ->assertOk()
             ->assertJsonStructure([
                 'csrf_token',
-                'scenarios' => [['id', 'title', 'description', 'choices']],
-                'items',
+                'scenarios' => [['id', 'title', 'title_en', 'description', 'description_en', 'choices' => [['label_en', 'aftermath_en']]]],
+                'items' => [['id', 'name', 'name_en', 'description', 'description_en']],
                 'user',
             ])
             ->assertJsonCount(5, 'scenarios');
@@ -148,15 +152,22 @@ class GameApiTest extends TestCase
 
         $item = $this->actingAs($admin)->postJson('/game-api/admin/items', [
             'name' => 'Iron bar',
+            'name_en' => 'Iron bar',
             'description' => 'A sturdy piece of iron.',
+            'description_en' => 'A sturdy piece of iron.',
         ])->assertCreated()
             ->assertJsonPath('item.name', 'Iron bar')
+            ->assertJsonPath('item.name_en', 'Iron bar')
             ->json('item');
 
         $this->putJson("/game-api/admin/items/{$item['id']}", [
             'name' => 'Iron tool',
+            'name_en' => 'Iron tool',
             'description' => 'An updated sturdy iron tool.',
-        ])->assertOk()->assertJsonPath('item.name', 'Iron tool');
+            'description_en' => 'An updated sturdy iron tool.',
+        ])->assertOk()
+            ->assertJsonPath('item.name', 'Iron tool')
+            ->assertJsonPath('item.name_en', 'Iron tool');
 
         GameSession::create([
             'user_id' => $admin->id,
@@ -170,32 +181,78 @@ class GameApiTest extends TestCase
         $choices = [
             [
                 'label' => 'Left',
+                'label_en' => 'Left',
                 'aftermath' => 'A narrow passage.',
+                'aftermath_en' => 'A narrow passage.',
                 'ending_kind' => 'good',
                 'ending_title' => 'Escaped',
+                'ending_title_en' => 'Escaped',
                 'ending_text' => 'You made it out.',
+                'ending_text_en' => 'You made it out.',
             ],
-            ['label' => 'Middle', 'aftermath' => 'A blocked passage.', 'next_scenario_id' => $nextScenario->id],
-            ['label' => 'Right', 'aftermath' => 'Fresh air.', 'next_scenario_id' => $nextScenario->id],
+            ['label' => 'Middle', 'label_en' => 'Middle', 'aftermath' => 'A blocked passage.', 'aftermath_en' => 'A blocked passage.', 'next_scenario_id' => $nextScenario->id],
+            ['label' => 'Right', 'label_en' => 'Right', 'aftermath' => 'Fresh air.', 'aftermath_en' => 'Fresh air.', 'next_scenario_id' => $nextScenario->id],
         ];
         $scenario = $this->postJson('/game-api/admin/scenarios', [
             'title' => 'Escape',
+            'title_en' => 'Escape',
             'description' => 'Find a way out.',
+            'description_en' => 'Find a way out.',
             'risk_zone' => 'caution',
             'sort_order' => 2,
             'choices' => $choices,
         ])->assertCreated()
             ->assertJsonPath('scenario.title', 'Escape')
+            ->assertJsonPath('scenario.title_en', 'Escape')
+            ->assertJsonPath('scenario.choices.0.label_en', 'Left')
             ->assertJsonCount(3, 'scenario.choices')
             ->json('scenario');
 
         $this->putJson("/game-api/admin/scenarios/{$scenario['id']}", [
             'title' => 'Escape route',
+            'title_en' => 'Escape route',
             'description' => 'An updated way out.',
+            'description_en' => 'An updated way out.',
             'risk_zone' => 'safe',
             'sort_order' => 2,
             'choices' => $choices,
         ])->assertOk()->assertJsonPath('scenario.title', 'Escape route');
+    }
+
+    public function test_admin_content_requires_english_translations(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $nextScenario = Scenario::create([
+            'title' => 'Next scene',
+            'description' => 'The next scene.',
+            'risk_zone' => 'safe',
+            'sort_order' => 1,
+        ]);
+        $choices = [
+            ['label' => 'Left', 'aftermath' => 'A passage.', 'next_scenario_id' => $nextScenario->id],
+            ['label' => 'Middle', 'aftermath' => 'A passage.', 'next_scenario_id' => $nextScenario->id],
+            ['label' => 'Right', 'aftermath' => 'A passage.', 'next_scenario_id' => $nextScenario->id],
+        ];
+
+        $this->actingAs($admin)->postJson('/game-api/admin/items', [
+            'name' => 'Lantern',
+            'description' => 'A small light.',
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors(['name_en', 'description_en']);
+
+        $this->postJson('/game-api/admin/scenarios', [
+            'title' => 'A new scene',
+            'description' => 'A scene in the tunnels.',
+            'risk_zone' => 'caution',
+            'sort_order' => 2,
+            'choices' => $choices,
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'title_en',
+                'description_en',
+                'choices.0.label_en',
+                'choices.0.aftermath_en',
+            ]);
     }
 
     public function test_admin_can_delete_a_scenario_while_preserving_incoming_endings(): void
@@ -220,7 +277,9 @@ class GameApiTest extends TestCase
             'next_scenario_id' => $scenario->id,
             'ending_kind' => 'good',
             'ending_title' => 'A good ending',
+            'ending_title_en' => 'A good ending',
             'ending_text' => 'The original ending is preserved.',
+            'ending_text_en' => 'The original ending is preserved.',
             'sort_order' => 1,
         ]);
         $completedSession = GameSession::create([
@@ -241,7 +300,9 @@ class GameApiTest extends TestCase
             'next_scenario_id' => null,
             'ending_kind' => 'good',
             'ending_title' => 'A good ending',
+            'ending_title_en' => 'A good ending',
             'ending_text' => 'The original ending is preserved.',
+            'ending_text_en' => 'The original ending is preserved.',
         ]);
     }
 
@@ -315,14 +376,16 @@ class GameApiTest extends TestCase
             'sort_order' => 1,
         ]);
         $choices = [
-            ['label' => 'First', 'aftermath' => 'It ends.', 'ending_kind' => 'good', 'ending_title' => 'End', 'ending_text' => 'Safe.'],
-            ['label' => 'Second', 'aftermath' => 'It ends.', 'ending_kind' => 'dead', 'ending_title' => 'End', 'ending_text' => 'Dead.'],
-            ['label' => 'Third', 'aftermath' => 'It ends.', 'ending_kind' => 'good', 'ending_title' => 'End', 'ending_text' => 'Safe.'],
+            ['label' => 'First', 'label_en' => 'First', 'aftermath' => 'It ends.', 'aftermath_en' => 'It ends.', 'ending_kind' => 'good', 'ending_title' => 'End', 'ending_title_en' => 'End', 'ending_text' => 'Safe.', 'ending_text_en' => 'Safe.'],
+            ['label' => 'Second', 'label_en' => 'Second', 'aftermath' => 'It ends.', 'aftermath_en' => 'It ends.', 'ending_kind' => 'dead', 'ending_title' => 'End', 'ending_title_en' => 'End', 'ending_text' => 'Dead.', 'ending_text_en' => 'Dead.'],
+            ['label' => 'Third', 'label_en' => 'Third', 'aftermath' => 'It ends.', 'aftermath_en' => 'It ends.', 'ending_kind' => 'good', 'ending_title' => 'End', 'ending_title_en' => 'End', 'ending_text' => 'Safe.', 'ending_text_en' => 'Safe.'],
         ];
 
         $payload = [
             'title' => 'Unexpected tunnel',
+            'title_en' => 'Unexpected tunnel',
             'description' => 'A random event replaces the normal tunnel.',
+            'description_en' => 'A random event replaces the normal tunnel.',
             'risk_zone' => 'danger',
             'sort_order' => 2,
             'replacement_for_scenario_id' => $normalScenario->id,
@@ -382,9 +445,11 @@ class GameApiTest extends TestCase
 
         $this->assertDatabaseCount('scenarios', 5);
         $this->assertDatabaseCount('scenario_choices', 15);
-        $this->assertDatabaseHas('items', ['name' => 'Ticība pasakām']);
+        $this->assertDatabaseHas('items', ['name' => 'Ticība pasakām', 'name_en' => 'Belief in fairytales']);
+        $this->assertDatabaseHas('scenarios', ['title' => '1. SCENĀRIJS — BRUKUMS', 'title_en' => 'SCENARIO 1 — COLLAPSE']);
         $this->assertDatabaseHas('scenario_choices', [
             'label' => 'Paslēpies zem arkas otrajā ejā.',
+            'label_en' => 'Hide beneath the arch in the second passage.',
             'ending_kind' => null,
         ]);
     }

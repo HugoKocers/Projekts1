@@ -10,13 +10,17 @@ class ScenarioChoice extends Model
     protected $fillable = [
         'scenario_id',
         'label',
+        'label_en',
         'aftermath',
+        'aftermath_en',
         'next_scenario_id',
         'required_item_id',
         'reward_item_id',
         'reward_chance',
         'ending_title',
+        'ending_title_en',
         'ending_text',
+        'ending_text_en',
         'ending_kind',
         'sort_order',
     ];

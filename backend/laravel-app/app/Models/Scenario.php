@@ -10,7 +10,9 @@ class Scenario extends Model
 {
     protected $fillable = [
         'title',
+        'title_en',
         'description',
+        'description_en',
         'risk_zone',
         'sort_order',
         'replacement_for_scenario_id',

@@ -1,0 +1,11 @@
+.git
+.github
+**/.env
+**/.env.*
+!**/.env.example
+**/node_modules
+**/vendor
+**/storage/logs/*
+**/database/*.sqlite
+frontend/dist
+backend/laravel-app/public/spa

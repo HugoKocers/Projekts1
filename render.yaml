@@ -1,0 +1,43 @@
+databases:
+  - name: projekts1-db
+    plan: basic-256mb
+    databaseName: projekts1
+    user: projekts1
+
+services:
+  - type: web
+    name: projekts1
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /up
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        generateValue: true
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_URL
+        fromDatabase:
+          name: projekts1-db
+          property: connectionString
+      - key: SESSION_DRIVER
+        value: database
+      - key: SESSION_SECURE_COOKIE
+        value: "true"
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: GAME_ADMIN_EMAIL
+        sync: false
+      - key: GAME_ADMIN_PASSWORD
+        sync: false
+      - key: GAME_ADMIN_USERNAME
+        value: admin

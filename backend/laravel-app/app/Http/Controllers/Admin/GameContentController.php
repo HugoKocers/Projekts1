@@ -69,7 +69,9 @@ class GameContentController extends Controller
             ->get();
         $hasUnprotectedChoices = $incomingChoices->contains(fn (ScenarioChoice $choice) => ! $choice->ending_kind
             || ! $choice->ending_title
-            || ! $choice->ending_text);
+            || ! $choice->ending_title_en
+            || ! $choice->ending_text
+            || ! $choice->ending_text_en);
 
         if ($hasUnprotectedChoices) {
             throw ValidationException::withMessages([
@@ -141,20 +143,26 @@ class GameContentController extends Controller
             ->whereNull('replacement_for_scenario_id');
         $data = $request->validate([
             'title' => ['required', 'string', 'max:255'],
+            'title_en' => ['required', 'string', 'max:255'],
             'description' => ['required', 'string', 'max:10000'],
+            'description_en' => ['required', 'string', 'max:10000'],
             'risk_zone' => ['required', 'in:safe,caution,danger'],
             'sort_order' => ['required', 'integer', 'min:0'],
             'replacement_for_scenario_id' => ['nullable', 'integer', $normalScenarioRule],
             'spawn_chance' => ['nullable', 'numeric', 'between:0,1', 'decimal:0,2'],
             'choices' => ['required', 'array', 'size:3'],
             'choices.*.label' => ['required', 'string', 'max:255'],
+            'choices.*.label_en' => ['required', 'string', 'max:255'],
             'choices.*.aftermath' => ['required', 'string', 'max:10000'],
+            'choices.*.aftermath_en' => ['required', 'string', 'max:10000'],
             'choices.*.next_scenario_id' => ['nullable', 'integer', $normalScenarioRule],
             'choices.*.required_item_id' => ['nullable', 'integer', 'exists:items,id'],
             'choices.*.reward_item_id' => ['nullable', 'integer', 'exists:items,id'],
             'choices.*.reward_chance' => ['nullable', 'numeric', 'between:0,1', 'decimal:0,2'],
             'choices.*.ending_title' => ['nullable', 'string', 'max:255'],
+            'choices.*.ending_title_en' => ['nullable', 'string', 'max:255'],
             'choices.*.ending_text' => ['nullable', 'string', 'max:10000'],
+            'choices.*.ending_text_en' => ['nullable', 'string', 'max:10000'],
             'choices.*.ending_kind' => ['nullable', 'in:good,dead'],
         ]);
 
@@ -194,9 +202,14 @@ class GameContentController extends Controller
                 ]);
             }
 
-            if ($hasEnding && (empty($choice['ending_title']) || empty($choice['ending_text']))) {
+            if ($hasEnding && (
+                empty($choice['ending_title'])
+                || empty($choice['ending_title_en'])
+                || empty($choice['ending_text'])
+                || empty($choice['ending_text_en'])
+            )) {
                 throw ValidationException::withMessages([
-                    "choices.{$index}.ending_title" => ['Endings require both a title and ending text.'],
+                    "choices.{$index}.ending_title" => ['Endings require a title and text in Latvian and English.'],
                 ]);
             }
 
@@ -220,7 +233,9 @@ class GameContentController extends Controller
 
         return $request->validate([
             'name' => ['required', 'string', 'max:255', $nameRule],
+            'name_en' => ['required', 'string', 'max:255'],
             'description' => ['required', 'string', 'max:5000'],
+            'description_en' => ['required', 'string', 'max:5000'],
         ]);
     }
 

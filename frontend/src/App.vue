@@ -21,8 +21,9 @@ const adminItems = ref([])
 const editingScenarioId = ref(null)
 const editingItemId = ref(null)
 const scenarioDraft = ref(null)
-const itemDraft = ref({ name: '', description: '' })
+const itemDraft = ref({ name: '', name_en: '', description: '', description_en: '' })
 const aftermathText = ref('')
+const aftermathTextEn = ref('')
 const aftermathReward = ref(null)
 const inventory = ref([])
 const selectedInventoryItem = ref(null)
@@ -99,12 +100,14 @@ function setReplacementTarget(draft, scenarioId) {
 
 const uiTranslations = {
   EN: {
+    gameWord: 'GAME',
     auth: 'SIGN UP / LOG IN',
     start: 'START',
     continue: 'CONTINUE',
     exit: 'EXIT',
     admin: 'ADMIN PANEL',
     account: 'ACCOUNT',
+    accountMenu: 'Account menu',
     returnMenu: 'RETURN TO MENU',
     back: 'BACK',
     game: 'Game',
@@ -126,6 +129,9 @@ const uiTranslations = {
     inventory: 'INVENTORY',
     backToGame: 'BACK TO GAME',
     emptyInventory: 'NO ITEMS COLLECTED',
+    emptyInventorySlot: 'Empty inventory slot',
+    collectedItems: 'Collected items',
+    choiceAftermath: 'Choice aftermath',
     item: 'ITEM',
     required: 'Required:',
     retrySave: 'RETRY SAVE',
@@ -135,13 +141,17 @@ const uiTranslations = {
     end: 'END',
     loggedIn: 'Logged in:',
     adminHeading: 'Game content',
+    adminEyebrow: 'Administration',
     scenarios: 'Scenarios',
     items: 'Items',
     new: 'NEW',
     edit: 'EDIT',
     delete: 'DELETE',
     scenarioName: 'Title',
-    description: 'Description',
+    scenarioNameEnglish: 'Title (English)',
+    description: 'Description (Latvian)',
+    descriptionEnglish: 'Description (English)',
+    contentLanguagesHelp: 'Enter each story and item field in both Latvian and English. If a translation is missing, the Latvian text will be shown.',
     riskZone: 'Risk zone',
     safe: 'Safe',
     caution: 'Caution',
@@ -162,8 +172,10 @@ const uiTranslations = {
     itemDeleted: 'Item deleted.',
     order: 'Normal scenario order (lower starts earlier)',
     choice: 'Choice',
-    choiceText: 'Choice text',
-    consequence: 'Consequence',
+    choiceText: 'Choice text (Latvian)',
+    choiceTextEnglish: 'Choice text (English)',
+    consequence: 'Consequence (Latvian)',
+    consequenceEnglish: 'Consequence (English)',
     nextScenario: 'Next scenario',
     noValue: 'None',
     endingType: 'Ending type',
@@ -174,15 +186,17 @@ const uiTranslations = {
     rewardChance: 'Reward chance (0–1)',
     rewardChanceHelp: 'Probability of receiving this item: 0.25 means 25%. Use increments of 0.01. Leave both reward fields empty for no reward.',
     choiceRule: 'All three choices need text and a consequence. For each, select exactly one next scenario or ending. Random replacement scenes use the target and chance settings above; they do not need a direct link.',
-    endingTitle: 'Ending title',
-    endingText: 'Ending text',
+    endingTitle: 'Ending title (Latvian)',
+    endingTitleEnglish: 'Ending title (English)',
+    endingText: 'Ending text (Latvian)',
+    endingTextEnglish: 'Ending text (English)',
     reachable: 'Playable from start',
     unreachable: 'Not linked from start',
-    scenarioDetailsRequired: 'Enter a scenario title and description.',
+    scenarioDetailsRequired: 'Enter the scenario title and description in both languages.',
     scenarioOrderInvalid: 'Enter a non-negative whole number for the scenario order.',
-    choiceDetailsRequired: 'Choice : fill in both the choice text and consequence.',
+    choiceDetailsRequired: 'Choice : fill in the choice text and consequence in both languages.',
     choiceRouteRequired: 'Choice : select exactly one next scenario or ending.',
-    choiceEndingRequired: 'Choice : add both an ending title and ending text.',
+    choiceEndingRequired: 'Choice : add the ending title and text in both languages.',
     choiceRewardRequired: 'Choice : select both a reward item and chance, or leave both empty.',
     choiceRewardChanceInvalid: 'Choice : reward chance must be between 0 and 1.',
     choiceRewardPrecision: 'Choice : reward chance must use increments of 0.01 (up to 2 decimal places).',
@@ -194,7 +208,10 @@ const uiTranslations = {
     editScenario: 'Edit scenario',
     newItem: 'New item',
     editItem: 'Edit item',
-    itemName: 'Name',
+    itemName: 'Name (Latvian)',
+    itemNameEnglish: 'Name (English)',
+    itemTranslationsRequired: 'Enter the item name and description in both languages.',
+    itemDescriptionEnglish: 'Description (English)',
     adminOnly: 'This page is only available to administrators.',
     signInToStart: 'Sign in or create an account to start and save a game.',
     signInToContinue: 'Sign in to view your saved games.',
@@ -202,12 +219,14 @@ const uiTranslations = {
     saveFailed: 'Game save failed.',
   },
   LV: {
+    gameWord: 'Spēle',
     auth: 'REĢISTRĒTIES / PIESLĒGTIES',
     start: 'SĀKT',
     continue: 'TURPINĀT',
     exit: 'IZIET',
     admin: 'ADMIN PANELIS',
     account: 'KONTS',
+    accountMenu: 'Konta izvēlne',
     returnMenu: 'ATGRIEZTIES UZ IZVĒLNI',
     back: 'ATGRIEZTIES',
     game: 'Spēle',
@@ -229,6 +248,9 @@ const uiTranslations = {
     inventory: 'INVENTĀRS',
     backToGame: 'ATGRIEZTIES SPĒLĒ',
     emptyInventory: 'NAV ATRASTU PRIEKŠMETU',
+    emptyInventorySlot: 'Tukša inventāra vieta',
+    collectedItems: 'Atrasti priekšmeti',
+    choiceAftermath: 'Izvēles sekas',
     item: 'PRIEKŠMETS',
     required: 'Nepieciešams:',
     retrySave: 'MĒĢINĀT SAGLABĀT VĒLREIZ',
@@ -238,13 +260,17 @@ const uiTranslations = {
     end: 'BEIGT',
     loggedIn: 'Pieslēdzies:',
     adminHeading: 'Spēles saturs',
+    adminEyebrow: 'Administrēšana',
     scenarios: 'Scenāriji',
     items: 'Priekšmeti',
     new: 'JAUNS',
     edit: 'REDIĢĒT',
     delete: 'DZĒST',
-    scenarioName: 'Nosaukums',
-    description: 'Apraksts',
+    scenarioName: 'Nosaukums (latviski)',
+    scenarioNameEnglish: 'Nosaukums (angliski)',
+    description: 'Apraksts (latviski)',
+    descriptionEnglish: 'Apraksts (angliski)',
+    contentLanguagesHelp: 'Katru stāsta un priekšmeta lauku aizpildi latviski un angliski. Ja tulkojuma nav, tiks rādīts teksts latviešu valodā.',
     riskZone: 'Riska zona',
     safe: 'Droša',
     caution: 'Uzmanību',
@@ -265,8 +291,10 @@ const uiTranslations = {
     itemDeleted: 'Priekšmets izdzēsts.',
     order: 'Parastā scenārija kārtība (mazākais sākas agrāk)',
     choice: 'Izvēle',
-    choiceText: 'Izvēles teksts',
-    consequence: 'Sekas',
+    choiceText: 'Izvēles teksts (latviski)',
+    choiceTextEnglish: 'Izvēles teksts (angliski)',
+    consequence: 'Sekas (latviski)',
+    consequenceEnglish: 'Sekas (angliski)',
     nextScenario: 'Nākamais scenārijs',
     noValue: 'Nav',
     endingType: 'Beigu veids',
@@ -277,15 +305,17 @@ const uiTranslations = {
     rewardChance: 'Atlīdzības iespēja (0–1)',
     rewardChanceHelp: 'Varbūtība saņemt šo priekšmetu: 0.25 nozīmē 25%. Izmanto soli 0,01. Ja atlīdzības nav, atstāj abus laukus tukšus.',
     choiceRule: 'Visām trim izvēlēm jābūt tekstam un sekām. Katrai izvēlei norādi tieši vienu — nākamo scenāriju vai beigas. Nejaušie aizvietotāji izmanto augstāk norādīto mērķi un iespēju; tie nav tieši jāsasaista ar izvēli.',
-    endingTitle: 'Beigu virsraksts',
-    endingText: 'Beigu teksts',
+    endingTitle: 'Beigu virsraksts (latviski)',
+    endingTitleEnglish: 'Beigu virsraksts (angliski)',
+    endingText: 'Beigu teksts (latviski)',
+    endingTextEnglish: 'Beigu teksts (angliski)',
     reachable: 'Spēlējams no sākuma',
     unreachable: 'Nav sasniedzams no sākuma',
-    scenarioDetailsRequired: 'Ievadi scenārija nosaukumu un aprakstu.',
+    scenarioDetailsRequired: 'Ievadi scenārija nosaukumu un aprakstu abās valodās.',
     scenarioOrderInvalid: 'Ievadi kārtas skaitli kā veselu, nenegatīvu skaitli.',
-    choiceDetailsRequired: 'Izvēle : ievadi gan izvēles tekstu, gan sekas.',
+    choiceDetailsRequired: 'Izvēle : ievadi izvēles tekstu un sekas abās valodās.',
     choiceRouteRequired: 'Izvēle : norādi tieši vienu — nākamo scenāriju vai beigas.',
-    choiceEndingRequired: 'Izvēle : ievadi gan beigu virsrakstu, gan beigu tekstu.',
+    choiceEndingRequired: 'Izvēle : ievadi beigu virsrakstu un tekstu abās valodās.',
     choiceRewardRequired: 'Izvēle : norādi gan atlīdzības priekšmetu, gan iespēju vai atstāj abus tukšus.',
     choiceRewardChanceInvalid: 'Izvēle : atlīdzības iespējai jābūt no 0 līdz 1.',
     choiceRewardPrecision: 'Izvēle : atlīdzības iespēja jānorāda ar soli 0,01 (ne vairāk kā 2 zīmes aiz komata).',
@@ -297,7 +327,10 @@ const uiTranslations = {
     editScenario: 'Rediģēt scenāriju',
     newItem: 'Jauns priekšmets',
     editItem: 'Rediģēt priekšmetu',
-    itemName: 'Nosaukums',
+    itemName: 'Nosaukums (latviski)',
+    itemNameEnglish: 'Nosaukums (angliski)',
+    itemTranslationsRequired: 'Ievadi priekšmeta nosaukumu un aprakstu abās valodās.',
+    itemDescriptionEnglish: 'Apraksts (angliski)',
     adminOnly: 'Šī lapa pieejama tikai administratoram.',
     signInToStart: 'Pieslēdzies vai reģistrējies, lai sāktu un saglabātu spēli.',
     signInToContinue: 'Pieslēdzies, lai skatītu saglabātās spēles.',
@@ -366,19 +399,19 @@ function uiText(key) {
   return uiTranslations[selectedLanguage.value][key] ?? key
 }
 
-function translateStoryText(value) {
+function translateStoryText(value, englishValue = null) {
   if (selectedLanguage.value !== 'EN' || !value) return value
+  if (englishValue) return englishValue
   for (const [title, translation] of Object.entries(storyTranslations)) {
     if (value === title) return translation.title
-    if (value === scenarios.value.find((scenario) => scenario.title === title)?.description) return translation.description
-    const choiceIndex = scenarios.value.find((scenario) => scenario.title === title)
-      ?.choices.findIndex((choice) => choice.label === value)
-    if (choiceIndex !== undefined && choiceIndex >= 0) {
-      const [label, aftermath, endingTitle, endingText] = translation.choices[choiceIndex]
-      if (value === scenarios.value.find((scenario) => scenario.title === title)?.choices[choiceIndex]?.label) return label
-      if (value === scenarios.value.find((scenario) => scenario.title === title)?.choices[choiceIndex]?.aftermath) return aftermath
-      if (value === scenarios.value.find((scenario) => scenario.title === title)?.choices[choiceIndex]?.ending_title) return endingTitle
-      if (value === scenarios.value.find((scenario) => scenario.title === title)?.choices[choiceIndex]?.ending_text) return endingText
+    const scenario = scenarios.value.find((entry) => entry.title === title)
+    if (value === scenario?.description) return translation.description
+    for (const [choiceIndex, choice] of (scenario?.choices ?? []).entries()) {
+      const [label, aftermath, endingTitle, endingText] = translation.choices[choiceIndex] ?? []
+      if (value === choice.label) return label ?? value
+      if (value === choice.aftermath) return aftermath ?? value
+      if (value === choice.ending_title) return endingTitle ?? value
+      if (value === choice.ending_text) return endingText ?? value
     }
   }
   const item = items.value.find((entry) => entry.name === value)
@@ -575,16 +608,16 @@ const inventorySlots = computed(() =>
 )
 const selectedItemDescription = computed(() =>
   selectedInventoryItem.value
-    ? translateStoryText(selectedInventoryItem.value.description)
+    ? translateStoryText(selectedInventoryItem.value.description, selectedInventoryItem.value.description_en)
     : selectedLanguage.value === 'EN' ? 'Select an item to view its description.' : 'Izvēlies priekšmetu, lai apskatītu tā aprakstu.',
 )
 const aftermathDisplay = computed(() => {
-  const translated = translateStoryText(aftermathText.value)
+  const translated = translateStoryText(aftermathText.value, aftermathTextEn.value)
   if (!aftermathReward.value) return translated
   if (!aftermathReward.value.found) {
     return `${translated} ${selectedLanguage.value === 'EN' ? 'This time, you did not find an item.' : 'Šoreiz priekšmetu neizdevās atrast.'}`
   }
-  const name = translateStoryText(aftermathReward.value.item.name)
+  const name = translateStoryText(aftermathReward.value.item.name, aftermathReward.value.item.name_en)
   return `${translated} ${selectedLanguage.value === 'EN' ? `Found item: ${name}.` : `Atradi priekšmetu: ${name}.`}`
 })
 const formattedPlaytime = computed(() => {
@@ -652,6 +685,7 @@ function legacyChooseStoryOption(option) {
   }
 
   aftermathText.value = option.aftermath
+  aftermathTextEn.value = option.aftermath_en
   aftermathReward.value = null
   pendingEnding.value = option.ending ?? null
   pendingNextScene.value = option.next ?? null
@@ -875,6 +909,7 @@ async function startNewGame() {
     currentScenarioId.value = payload.session.scenario_id
     inventory.value = startingItem ? [startingItem] : []
     aftermathText.value = ''
+    aftermathTextEn.value = ''
     pendingEnding.value = null
     pendingNextScene.value = null
     ending.value = null
@@ -898,6 +933,7 @@ async function resumeSession(session) {
     inventory.value = items.value.filter((item) => saved.inventory.includes(item.id))
     selectedInventoryItem.value = inventory.value[0] ?? null
     aftermathText.value = ''
+    aftermathTextEn.value = ''
     pendingEnding.value = null
     pendingNextScene.value = null
     ending.value = null
@@ -982,8 +1018,15 @@ function chooseStoryOption(option) {
   if (option.required_item && !inventory.value.some((item) => item.id === option.required_item.id)) return
 
   aftermathText.value = option.aftermath
+  aftermathTextEn.value = option.aftermath_en
   pendingEnding.value = option.ending_kind
-    ? { title: option.ending_title, text: option.ending_text, kind: option.ending_kind }
+    ? {
+        title: option.ending_title,
+        title_en: option.ending_title_en,
+        text: option.ending_text,
+        text_en: option.ending_text_en,
+        kind: option.ending_kind,
+      }
     : null
   pendingNextScene.value = option.next_scenario_id
 
@@ -1037,20 +1080,26 @@ function newScenarioDraft() {
   const replacementTarget = normalScenarios.value[0]
   scenarioDraft.value = {
     title: '',
+    title_en: '',
     description: '',
+    description_en: '',
     risk_zone: 'caution',
     sort_order: normalScenarios.value.length + 1,
     replacement_for_scenario_id: replacementTarget?.id ?? '',
     spawn_chance: replacementTarget ? '0.25' : '',
     choices: Array.from({ length: 3 }, () => ({
       label: '',
+      label_en: '',
       aftermath: '',
+      aftermath_en: '',
       next_scenario_id: '',
       required_item_id: '',
       reward_item_id: '',
       reward_chance: '',
       ending_title: '',
+      ending_title_en: '',
       ending_text: '',
+      ending_text_en: '',
       ending_kind: '',
     })),
   }
@@ -1078,20 +1127,26 @@ function editScenario(scenario) {
   editingScenarioId.value = scenario.id
   scenarioDraft.value = {
     title: scenario.title,
+    title_en: scenario.title_en ?? '',
     description: scenario.description,
+    description_en: scenario.description_en ?? '',
     risk_zone: scenario.risk_zone,
     sort_order: scenario.sort_order,
     replacement_for_scenario_id: scenario.replacement_for_scenario_id ?? '',
     spawn_chance: scenario.spawn_chance ?? '',
     choices: scenario.choices.map((choice) => ({
       label: choice.label,
+      label_en: choice.label_en ?? '',
       aftermath: choice.aftermath,
+      aftermath_en: choice.aftermath_en ?? '',
       next_scenario_id: choice.next_scenario_id ?? '',
       required_item_id: choice.required_item?.id ?? '',
       reward_item_id: choice.reward_item?.id ?? '',
       reward_chance: choice.reward_chance ?? '',
       ending_title: choice.next_scenario_id ? '' : choice.ending_title ?? '',
+      ending_title_en: choice.next_scenario_id ? '' : choice.ending_title_en ?? '',
       ending_text: choice.next_scenario_id ? '' : choice.ending_text ?? '',
+      ending_text_en: choice.next_scenario_id ? '' : choice.ending_text_en ?? '',
       ending_kind: choice.next_scenario_id ? '' : choice.ending_kind ?? '',
     })),
   }
@@ -1112,7 +1167,7 @@ async function saveScenario() {
   apiError.value = ''
   adminNotice.value = ''
   const draft = scenarioDraft.value
-  if (!draft.title.trim() || !draft.description.trim()) {
+  if (!draft.title.trim() || !draft.title_en.trim() || !draft.description.trim() || !draft.description_en.trim()) {
     apiError.value = uiText('scenarioDetailsRequired')
     return
   }
@@ -1139,7 +1194,12 @@ async function saveScenario() {
   }
   for (const [index, choice] of draft.choices.entries()) {
     const choiceNumber = index + 1
-    if (!choice.label.trim() || !choice.aftermath.trim()) {
+    if (
+      !choice.label.trim()
+      || !choice.label_en.trim()
+      || !choice.aftermath.trim()
+      || !choice.aftermath_en.trim()
+    ) {
       apiError.value = uiText('choiceDetailsRequired').replace(':', ` ${choiceNumber}:`)
       return
     }
@@ -1150,7 +1210,10 @@ async function saveScenario() {
       apiError.value = uiText('choiceRouteRequired').replace(':', ` ${choiceNumber}:`)
       return
     }
-    if (hasEnding && (!choice.ending_title.trim() || !choice.ending_text.trim())) {
+    if (
+      hasEnding
+      && (!choice.ending_title.trim() || !choice.ending_title_en.trim() || !choice.ending_text.trim() || !choice.ending_text_en.trim())
+    ) {
       apiError.value = uiText('choiceEndingRequired').replace(':', ` ${choiceNumber}:`)
       return
     }
@@ -1174,20 +1237,26 @@ async function saveScenario() {
   busy.value = true
   const data = {
     title: draft.title,
+    title_en: draft.title_en,
     description: draft.description,
+    description_en: draft.description_en,
     risk_zone: draft.risk_zone,
     sort_order: Number(draft.sort_order),
     replacement_for_scenario_id: draft.replacement_for_scenario_id ? Number(draft.replacement_for_scenario_id) : null,
     spawn_chance: draft.spawn_chance === '' ? null : Number(draft.spawn_chance),
     choices: draft.choices.map((choice) => ({
       label: choice.label,
+      label_en: choice.label_en,
       aftermath: choice.aftermath,
+      aftermath_en: choice.aftermath_en,
       next_scenario_id: choice.next_scenario_id ? Number(choice.next_scenario_id) : null,
       required_item_id: choice.required_item_id ? Number(choice.required_item_id) : null,
       reward_item_id: choice.reward_item_id ? Number(choice.reward_item_id) : null,
       reward_chance: choice.reward_chance === '' ? null : Number(choice.reward_chance),
       ending_title: choice.ending_title || null,
+      ending_title_en: choice.ending_title_en || null,
       ending_text: choice.ending_text || null,
+      ending_text_en: choice.ending_text_en || null,
       ending_kind: choice.ending_kind || null,
     })),
   }
@@ -1210,7 +1279,7 @@ async function saveScenario() {
 }
 
 async function deleteScenario(scenario) {
-  if (!window.confirm(`${uiText('deleteScenarioConfirm')} “${scenario.title}”?`)) return
+  if (!window.confirm(`${uiText('deleteScenarioConfirm')} “${translateStoryText(scenario.title, scenario.title_en)}”?`)) return
   adminNotice.value = ''
   try {
     await apiRequest(`/admin/scenarios/${scenario.id}`, { method: 'DELETE' })
@@ -1225,13 +1294,28 @@ async function deleteScenario(scenario) {
 function editItem(item) {
   adminNotice.value = ''
   editingItemId.value = item.id
-  itemDraft.value = { name: item.name, description: item.description }
+  itemDraft.value = {
+    name: item.name,
+    name_en: item.name_en ?? '',
+    description: item.description,
+    description_en: item.description_en ?? '',
+  }
 }
 
 async function saveItem() {
   busy.value = true
   apiError.value = ''
   adminNotice.value = ''
+  if (
+    !itemDraft.value.name.trim()
+    || !itemDraft.value.name_en.trim()
+    || !itemDraft.value.description.trim()
+    || !itemDraft.value.description_en.trim()
+  ) {
+    apiError.value = uiText('itemTranslationsRequired')
+    busy.value = false
+    return
+  }
   try {
     const path = editingItemId.value ? `/admin/items/${editingItemId.value}` : '/admin/items'
     await apiRequest(path, {
@@ -1239,7 +1323,7 @@ async function saveItem() {
       body: JSON.stringify(itemDraft.value),
     })
     editingItemId.value = null
-    itemDraft.value = { name: '', description: '' }
+    itemDraft.value = { name: '', name_en: '', description: '', description_en: '' }
     await loadAdminData()
     adminNotice.value = uiText('itemSaved')
     await loadBootstrap()
@@ -1291,7 +1375,7 @@ onUnmounted(stopGameTimer)
               <button
                 class="menu-mode"
                 type="button"
-                :aria-label="currentUser ? `${currentUser.name} account menu` : 'Account menu'"
+                :aria-label="currentUser ? `${currentUser.name} ${uiText('accountMenu')}` : uiText('accountMenu')"
                 :aria-expanded="profileMenuOpen"
                 aria-haspopup="true"
                 @click="toggleProfileMenu"
@@ -1310,7 +1394,7 @@ onUnmounted(stopGameTimer)
             </div>
             <div class="menu-layout">
               <div class="menu-left">
-                <div class="game-word">GAME</div>
+                <div class="game-word">{{ uiText('gameWord') }}</div>
                 <div class="menu-grid">
                   <button
                     v-for="button in menuButtons"
@@ -1417,7 +1501,7 @@ onUnmounted(stopGameTimer)
               :disabled="busy"
               @click="resumeSession(session)"
             >
-              <span class="continue-text">{{ translateStoryText(session.scenario_description) }}</span>
+              <span class="continue-text">{{ translateStoryText(session.scenario_description, session.scenario_description_en) }}</span>
               <span class="continue-time">{{ session.playtime }}</span>
             </button>
 
@@ -1432,7 +1516,7 @@ onUnmounted(stopGameTimer)
           <div class="panel-card admin-card">
             <div class="admin-heading">
               <div>
-                <p class="eyebrow">Administratora panelis</p>
+                <p class="eyebrow">{{ uiText('adminEyebrow') }}</p>
                 <h2>{{ uiText('adminHeading') }}</h2>
               </div>
               <button type="button" @click="goBack">{{ uiText('return') }}</button>
@@ -1447,14 +1531,14 @@ onUnmounted(stopGameTimer)
                 </div>
                 <article v-for="scenario in adminScenarios" :key="scenario.id" class="admin-entry">
                   <div>
-                    <strong>{{ scenario.title }}</strong>
+                    <strong>{{ translateStoryText(scenario.title, scenario.title_en) }}</strong>
                     <span v-if="scenario.replacement_for_scenario_id" class="scenario-reachability is-unreachable">
-                      {{ uiText('randomReplacement') }} — {{ scenario.replacement_for_scenario?.title ?? adminScenarios.find((entry) => entry.id === scenario.replacement_for_scenario_id)?.title }} ({{ formatChancePercent(scenario.spawn_chance) }})
+                      {{ uiText('randomReplacement') }} — {{ translateStoryText(scenario.replacement_for_scenario?.title ?? adminScenarios.find((entry) => entry.id === scenario.replacement_for_scenario_id)?.title, scenario.replacement_for_scenario?.title_en ?? adminScenarios.find((entry) => entry.id === scenario.replacement_for_scenario_id)?.title_en) }} ({{ formatChancePercent(scenario.spawn_chance) }})
                     </span>
                     <span :class="['scenario-reachability', reachableScenarioIds.has(scenario.id) ? 'is-reachable' : 'is-unreachable']">
                       {{ reachableScenarioIds.has(scenario.id) ? uiText('reachable') : uiText('unreachable') }}
                     </span>
-                    <p>{{ scenario.description }}</p>
+                    <p>{{ translateStoryText(scenario.description, scenario.description_en) }}</p>
                   </div>
                   <div class="admin-entry-actions">
                     <button type="button" @click="editScenario(scenario)">{{ uiText('edit') }}</button>
@@ -1465,8 +1549,11 @@ onUnmounted(stopGameTimer)
 
               <form v-if="scenarioDraft" class="admin-editor" novalidate @submit.prevent="saveScenario" @input="clearAdminFeedback">
                 <h3>{{ editingScenarioId ? uiText('editScenario') : uiText('newScenario') }}</h3>
+                <p class="admin-help">{{ uiText('contentLanguagesHelp') }}</p>
                 <label>{{ uiText('scenarioName') }}<input v-model="scenarioDraft.title" required maxlength="255" /></label>
+                <label>{{ uiText('scenarioNameEnglish') }}<input v-model="scenarioDraft.title_en" required maxlength="255" /></label>
                 <label>{{ uiText('description') }}<textarea v-model="scenarioDraft.description" required rows="4" /></label>
+                <label>{{ uiText('descriptionEnglish') }}<textarea v-model="scenarioDraft.description_en" required rows="4" /></label>
                 <p class="admin-help">{{ uiText('choiceRule') }}</p>
                 <div class="admin-inline-fields">
                   <label>{{ uiText('replacesScenario') }}
@@ -1476,7 +1563,7 @@ onUnmounted(stopGameTimer)
                     >
                       <option value="">{{ uiText('standardScenario') }}</option>
                       <option v-for="option in normalScenarios" :key="option.id" :value="option.id">
-                        {{ option.title }}
+                        {{ translateStoryText(option.title, option.title_en) }}
                       </option>
                     </select>
                   </label>
@@ -1498,7 +1585,9 @@ onUnmounted(stopGameTimer)
                 <fieldset v-for="(choice, index) in scenarioDraft.choices" :key="index" class="choice-editor">
                   <legend>{{ uiText('choice') }} {{ index + 1 }}</legend>
                   <label>{{ uiText('choiceText') }}<input v-model="choice.label" required /></label>
+                  <label>{{ uiText('choiceTextEnglish') }}<input v-model="choice.label_en" required /></label>
                   <label>{{ uiText('consequence') }}<textarea v-model="choice.aftermath" required rows="2" /></label>
+                  <label>{{ uiText('consequenceEnglish') }}<textarea v-model="choice.aftermath_en" required rows="2" /></label>
                   <div class="admin-inline-fields">
                     <label>{{ uiText('nextScenario') }}
                       <select
@@ -1507,7 +1596,7 @@ onUnmounted(stopGameTimer)
                       >
                         <option value="">{{ uiText('noValue') }}</option>
                         <option v-for="option in normalScenarios" :key="option.id" :value="option.id">
-                          {{ option.title }}
+                          {{ translateStoryText(option.title, option.title_en) }}
                         </option>
                       </select>
                     </label>
@@ -1526,13 +1615,13 @@ onUnmounted(stopGameTimer)
                     <label>{{ uiText('requiredItem') }}
                       <select v-model="choice.required_item_id">
                         <option value="">{{ uiText('noValue') }}</option>
-                        <option v-for="item in adminItems" :key="item.id" :value="item.id">{{ item.name }}</option>
+                        <option v-for="item in adminItems" :key="item.id" :value="item.id">{{ translateStoryText(item.name, item.name_en) }}</option>
                       </select>
                     </label>
                     <label>{{ uiText('rewardItem') }}
                       <select v-model="choice.reward_item_id">
                         <option value="">{{ uiText('noValue') }}</option>
-                        <option v-for="item in adminItems" :key="item.id" :value="item.id">{{ item.name }}</option>
+                        <option v-for="item in adminItems" :key="item.id" :value="item.id">{{ translateStoryText(item.name, item.name_en) }}</option>
                       </select>
                     </label>
                   </div>
@@ -1541,7 +1630,9 @@ onUnmounted(stopGameTimer)
                   </label>
                   <p class="admin-help">{{ uiText('rewardChanceHelp') }}</p>
                   <label>{{ uiText('endingTitle') }}<input v-model="choice.ending_title" /></label>
+                  <label>{{ uiText('endingTitleEnglish') }}<input v-model="choice.ending_title_en" /></label>
                   <label>{{ uiText('endingText') }}<textarea v-model="choice.ending_text" rows="2" /></label>
+                  <label>{{ uiText('endingTextEnglish') }}<textarea v-model="choice.ending_text_en" rows="2" /></label>
                 </fieldset>
                 <button type="submit" :disabled="busy">{{ busy ? uiText('save') : uiText('saveScenario') }}</button>
               </form>
@@ -1549,7 +1640,10 @@ onUnmounted(stopGameTimer)
               <section class="admin-list item-admin">
                 <h3>{{ uiText('items') }}</h3>
                 <article v-for="item in adminItems" :key="item.id" class="admin-entry">
-                  <div><strong>{{ item.name }}</strong><p>{{ item.description }}</p></div>
+                  <div>
+                    <strong>{{ translateStoryText(item.name, item.name_en) }}</strong>
+                    <p>{{ translateStoryText(item.description, item.description_en) }}</p>
+                  </div>
                   <div class="admin-entry-actions">
                     <button type="button" @click="editItem(item)">{{ uiText('edit') }}</button>
                     <button type="button" @click="deleteItem(item)">{{ uiText('delete') }}</button>
@@ -1558,10 +1652,12 @@ onUnmounted(stopGameTimer)
                 <form class="item-editor" @submit.prevent="saveItem">
                   <h3>{{ editingItemId ? uiText('editItem') : uiText('newItem') }}</h3>
                   <label>{{ uiText('itemName') }}<input v-model="itemDraft.name" required maxlength="255" /></label>
+                  <label>{{ uiText('itemNameEnglish') }}<input v-model="itemDraft.name_en" required maxlength="255" /></label>
                   <label>{{ uiText('description') }}<textarea v-model="itemDraft.description" required rows="3" /></label>
+                  <label>{{ uiText('itemDescriptionEnglish') }}<textarea v-model="itemDraft.description_en" required rows="3" /></label>
                   <div class="admin-entry-actions">
                     <button type="submit" :disabled="busy">{{ busy ? uiText('save') : uiText('saveItem') }}</button>
-                    <button v-if="editingItemId" type="button" @click="editingItemId = null; itemDraft = { name: '', description: '' }">{{ uiText('cancel') }}</button>
+                    <button v-if="editingItemId" type="button" @click="editingItemId = null; itemDraft = { name: '', name_en: '', description: '', description_en: '' }">{{ uiText('cancel') }}</button>
                   </div>
                 </form>
               </section>
@@ -1571,8 +1667,8 @@ onUnmounted(stopGameTimer)
 
         <section v-else-if="currentScreen === 'game'" :class="['game-view', `zone-${currentScene.risk_zone}`]">
           <div class="story-card">
-            <p class="scene-indicator">{{ translateStoryText(currentScene.title) }}</p>
-            <p class="story-text">{{ translateStoryText(currentScene.description) }}</p>
+            <p class="scene-indicator">{{ translateStoryText(currentScene.title, currentScene.title_en) }}</p>
+            <p class="story-text">{{ translateStoryText(currentScene.description, currentScene.description_en) }}</p>
 
             <div class="choice-list">
               <button
@@ -1580,12 +1676,12 @@ onUnmounted(stopGameTimer)
                 :key="`${choice.label}-${index}`"
                 :class="['choice-button', { locked: choice.required_item && !inventory.some((item) => item.id === choice.required_item.id) }]"
                 :disabled="choice.required_item && !inventory.some((item) => item.id === choice.required_item.id)"
-                :title="choice.required_item && !inventory.some((item) => item.id === choice.required_item.id) ? `${uiText('required')} ${translateStoryText(choice.required_item.name)}` : ''"
+                :title="choice.required_item && !inventory.some((item) => item.id === choice.required_item.id) ? `${uiText('required')} ${translateStoryText(choice.required_item.name, choice.required_item.name_en)}` : ''"
                 @click="chooseStoryOption(choice)"
               >
-                {{ translateStoryText(choice.label) }}
+                {{ translateStoryText(choice.label, choice.label_en) }}
                 <span v-if="choice.required_item && !inventory.some((item) => item.id === choice.required_item.id)" class="choice-requirement">
-                  {{ uiText('required') }} {{ translateStoryText(choice.required_item.name) }}
+                  {{ uiText('required') }} {{ translateStoryText(choice.required_item.name, choice.required_item.name_en) }}
                 </span>
               </button>
             </div>
@@ -1608,13 +1704,13 @@ onUnmounted(stopGameTimer)
               <button class="inventory-return" @click="toggleInventory">{{ uiText('backToGame') }}</button>
             </div>
             <div class="inventory-content">
-              <div class="inventory-slots" aria-label="Collected items">
+              <div class="inventory-slots" :aria-label="uiText('collectedItems')">
                 <button
                   v-for="(item, index) in inventorySlots"
                   :key="index"
                   :class="['inventory-slot', { selected: selectedInventoryItem === item && item }]"
                   :disabled="!item"
-                  :aria-label="item?.name ?? 'Empty inventory slot'"
+                  :aria-label="item?.name ?? uiText('emptyInventorySlot')"
                   @click="selectedInventoryItem = item"
                 >
                   {{ item ? uiText('item') : '' }}
@@ -1622,7 +1718,7 @@ onUnmounted(stopGameTimer)
               </div>
               <div class="inventory-details">
                 <div class="inventory-item-preview">
-                  {{ selectedInventoryItem ? translateStoryText(selectedInventoryItem.name) : uiText('item') }}
+                  {{ selectedInventoryItem ? translateStoryText(selectedInventoryItem.name, selectedInventoryItem.name_en) : uiText('item') }}
                 </div>
                 <p class="inventory-description">{{ selectedItemDescription }}</p>
               </div>
@@ -1631,7 +1727,7 @@ onUnmounted(stopGameTimer)
         </section>
 
         <section v-else-if="currentScreen === 'aftermath'" class="aftermath-view">
-          <div class="aftermath-panel" role="dialog" aria-modal="true" aria-label="Choice aftermath">
+          <div class="aftermath-panel" role="dialog" aria-modal="true" :aria-label="uiText('choiceAftermath')">
             <p>{{ aftermathDisplay }}</p>
             <p v-if="saveError" class="api-error" role="alert">{{ saveError }}</p>
             <button v-if="saveError" class="aftermath-next" @click="saveCurrentSession">{{ uiText('retrySave') }}</button>
@@ -1641,11 +1737,11 @@ onUnmounted(stopGameTimer)
 
         <section v-else-if="currentScreen === 'end'" class="panel-view end-view">
           <div :class="['end-screen', ending?.kind === 'dead' ? 'ending-dead' : 'ending-good']">
-            <h2 class="end-title">{{ ending ? translateStoryText(ending.title) : 'GAME END' }}</h2>
-            <p v-if="ending" class="ending-text">{{ translateStoryText(ending.text) }}</p>
-            <div class="end-items" aria-label="Items collected during the story">
+            <h2 class="end-title">{{ ending ? translateStoryText(ending.title, ending.title_en) : uiText('gameEnd') }}</h2>
+            <p v-if="ending" class="ending-text">{{ translateStoryText(ending.text, ending.text_en) }}</p>
+            <div class="end-items" :aria-label="uiText('collectedItems')">
               <p v-if="inventory.length === 0" class="empty-inventory">{{ uiText('emptyInventory') }}</p>
-              <p v-for="item in inventory" :key="item.id" class="end-item">{{ translateStoryText(item.name) }}</p>
+              <p v-for="item in inventory" :key="item.id" class="end-item">{{ translateStoryText(item.name, item.name_en) }}</p>
             </div>
             <div class="playtime-section">
               <h3>{{ uiText('playtime') }}</h3>

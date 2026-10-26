@@ -21,7 +21,7 @@ class GameApiController extends Controller
             'csrf_token' => csrf_token(),
             'user' => $this->userData(Auth::user()),
             'scenarios' => $this->scenarios(),
-            'items' => Item::query()->orderBy('name')->get(['id', 'name', 'description']),
+            'items' => Item::query()->orderBy('name')->get(['id', 'name', 'name_en', 'description', 'description_en']),
         ])->header('Cache-Control', 'no-store');
     }
 
@@ -84,7 +84,7 @@ class GameApiController extends Controller
         $this->pruneSavedGames($request->user());
         $sessions = $request->user()->gameSessions()
             ->where('is_completed', false)
-            ->with('currentScenario:id,title,description')
+            ->with('currentScenario:id,title,title_en,description,description_en')
             ->latest('updated_at')
             ->get()
             ->map(fn (GameSession $session) => $this->sessionData($session));
@@ -102,7 +102,7 @@ class GameApiController extends Controller
 
             return $session;
         });
-        $session->load('currentScenario:id,title,description');
+        $session->load('currentScenario:id,title,title_en,description,description_en');
 
         return response()->json(['session' => $this->sessionData($session)], 201);
     }
@@ -110,7 +110,7 @@ class GameApiController extends Controller
     public function showSession(Request $request, GameSession $gameSession): JsonResponse
     {
         abort_unless($gameSession->user_id === $request->user()->id, 404);
-        $gameSession->load('currentScenario:id,title,description');
+        $gameSession->load('currentScenario:id,title,title_en,description,description_en');
 
         return response()->json(['session' => $this->sessionData($gameSession)]);
     }
@@ -119,7 +119,7 @@ class GameApiController extends Controller
     {
         abort_unless($gameSession->user_id === $request->user()->id, 404);
         $gameSession->update($this->validatedSession($request));
-        $gameSession->load('currentScenario:id,title,description');
+        $gameSession->load('currentScenario:id,title,title_en,description,description_en');
 
         return response()->json(['session' => $this->sessionData($gameSession)]);
     }
@@ -156,7 +156,9 @@ class GameApiController extends Controller
             'id' => $session->id,
             'scenario_id' => $session->current_scenario_id,
             'scenario_title' => $session->currentScenario->title,
+            'scenario_title_en' => $session->currentScenario->title_en,
             'scenario_description' => $session->currentScenario->description,
+            'scenario_description_en' => $session->currentScenario->description_en,
             'inventory' => $session->inventory ?? [],
             'elapsed_seconds' => $seconds,
             'playtime' => sprintf('%02d:%02d', intdiv($seconds, 60), $seconds % 60),
@@ -168,7 +170,10 @@ class GameApiController extends Controller
     private function scenarios()
     {
         return Scenario::query()
-            ->with(['choices.requiredItem:id,name,description', 'choices.rewardItem:id,name,description'])
+            ->with([
+                'choices.requiredItem:id,name,name_en,description,description_en',
+                'choices.rewardItem:id,name,name_en,description,description_en',
+            ])
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();
