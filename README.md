@@ -1,24 +1,24 @@
 # Project README
 
-This project includes:
+Šajā projektā iekļauts:
 
-- Laravel backend
-- Vue frontend
+- Aizmugursistēma (backend) ar Laravel
+- Lietotāja saskarne ar Vue
 - SQLite database setup
 
-The app is organized into separate backend, frontend, and database folders for clearer project structure.
+Šis projekts ir organizēts atsevišķos aizmugursistēmas, lietotāja saskarnes un datubāzes folderos priekš skaidrāku projekta struktūru.
 
-## Run the game locally
+## Palaist spēli lokāli
 
-1. In `backend/laravel-app`, copy `.env.example` to `.env`, then configure `GAME_ADMIN_EMAIL`, `GAME_ADMIN_USERNAME`, and a strong `GAME_ADMIN_PASSWORD`. The account is created as an administrator when seeding; normal sign-ups never receive admin access.
-2. From `backend/laravel-app`, run:
+1. Iekšā `backend/laravel-app`, nokopē `.env.example` uz `.env`, un tad konfigurē `GAME_ADMIN_EMAIL`, `GAME_ADMIN_USERNAME`, un pievieno spēcīgu paroli `GAME_ADMIN_PASSWORD`. Konts tiks izveidots ar administrātora piekļuvi, parasta pierakstīšanās nekad nevarēs iegūt administratora piekļuvi.
+2. No `backend/laravel-app`, palaid terminālī:
 
-   ```powershell
+   ```
    php artisan key:generate
    php artisan migrate --seed
    php artisan serve --host=127.0.0.1 --port=8000
    ```
 
-3. In a second terminal, from `frontend`, run `npm install` and `npm run dev`.
+3. Atverot otru termināli, no `frontend`, palaid `npm install` un `npm run dev`.
 
-The game frontend runs on port `5173`; Laravel, the game API, runs on port `8000`. These are separate servers and cannot share a port. Vite proxies `/game-api` requests to Laravel on port 8000. Open `http://127.0.0.1:5173` for the game, and keep both server terminals running. Sign in or create an account before starting a game; Continue lists that account's unfinished sessions with the current scenario description and elapsed time in `MM:SS` (up to `99:59`), and keeps the three most recently updated saves. The configured admin can open the Admin Panel from the main menu to manage scenarios, their three choices, and items. A scenario can optionally replace a selected normal scenario at random; replacement chances for the same normal scenario must total no more than `1` (100%). Spawn and reward chances use increments of `0.01` (for example, `0.25` is 25%). When deleting a scenario, existing incoming choices retain their endings and completed saves at that scene are deleted; deletion is blocked if an unfinished save, an incoming choice without a complete ending, or a random replacement still depends on it.
+Spēles lietotāja saskarne darbojās uz port `5173`; Laravel, spēles API, darbojas uz port `8000`. Tie ir atsevišķi serveri, un tie nevar koplietot portu. Vite starpniekserveri `/game-api` veic pieprasījumus Laravel 8000. portā. Atveriet spēlei `http://127.0.0.1:5173` un ļaujiet abiem servera termināļiem darboties. Pirms spēles sākšanas piesakieties vai izveidojiet kontu; Turpināt (Continue) uzskaita šī konta nepabeigtās sesijas ar pašreizējā scenārija aprakstu un pagājušo laiku formātā `MM:SS` (līdz `99:59`), kā arī saglabā trīs jaunākos atjauninātos saglabāšanas ierakstus. Konfigurētais administrators var atvērt administratora paneli no galvenās izvēlnes, lai pārvaldītu scenārijus, to trīs izvēles iespējas un vienumus. Scenārijs var pēc izvēles aizstāt atlasītu parasto scenāriju nejauši; aizstāšanas iespēju kopsumma tam pašam parastajam scenārijam nedrīkst pārsniegt `1` (100%). Nāves un atlīdzības iespēju skaits tiek palielināts pa `0,01` (piemēram, `0,25` ir 25%). Dzēšot scenāriju, esošās ienākošās izvēles saglabā savas beigas, un pabeigtās saglabāšanas ieraksti šajā ainā tiek dzēsti. Dzēšana tiek bloķēta, ja no tās joprojām ir atkarīga nepabeigta saglabāšana, ienākoša izvēle bez pilnīgas pabeigšanas vai nejauša aizstāšana.
