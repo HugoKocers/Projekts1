@@ -25,11 +25,12 @@ COPY backend/laravel-app/ ./
 COPY --from=frontend /repo/backend/laravel-app/public/spa ./public/spa
 COPY docker/apache-vhost.conf /etc/apache2/sites-available/000-default.conf
 COPY docker/start.sh /usr/local/bin/start-game
+COPY docker/seed-game-if-empty.php /usr/local/bin/seed-game-if-empty.php
 
 RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader \
     && chown -R www-data:www-data storage bootstrap/cache \
     && chmod +x /usr/local/bin/start-game
 
-EXPOSE 80
+EXPOSE 10000
 
 ENTRYPOINT ["/usr/local/bin/start-game"]

@@ -1,6 +1,6 @@
 databases:
   - name: projekts1-db
-    plan: basic-256mb
+    plan: free
     databaseName: projekts1
     user: projekts1
 
@@ -8,7 +8,7 @@ services:
   - type: web
     name: projekts1
     runtime: docker
-    plan: starter
+    plan: free
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /up
