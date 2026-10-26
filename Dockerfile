@@ -27,7 +27,9 @@ COPY docker/apache-vhost.conf /etc/apache2/sites-available/000-default.conf
 COPY docker/start.sh /usr/local/bin/start-game
 COPY docker/seed-game-if-empty.php /usr/local/bin/seed-game-if-empty.php
 
-RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader \
+RUN mkdir -p bootstrap/cache storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs \
+    && chmod -R ug+rwX bootstrap/cache storage \
+    && composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader \
     && chown -R www-data:www-data storage bootstrap/cache \
     && chmod +x /usr/local/bin/start-game
 
