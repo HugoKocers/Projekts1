@@ -13,7 +13,7 @@ FROM php:8.3-apache
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libonig-dev libpq-dev libxml2-dev unzip \
-    && docker-php-ext-install -j"$(nproc)" dom mbstring pdo_pgsql simplexml xml xmlreader xmlwriter \
+    && docker-php-ext-install -j"$(nproc)" dom mbstring pdo_pgsql simplexml xml xmlwriter \
     && a2enmod headers rewrite \
     && rm -rf /var/lib/apt/lists/*
 
